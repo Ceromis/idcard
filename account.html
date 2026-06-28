@@ -1,0 +1,373 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>KARDS 账号</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --panel-bg: rgba(20, 22, 26, 0.92);
+    --btn-bg: linear-gradient(#2c2c30, #1a1a1c);
+    --btn-border: #4a4a50;
+    --text: #e6e6e6;
+    --accent: #d6a26a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    color: var(--text);
+    background: #0c0c0e url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.9'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>");
+    min-height: 100vh;
+  }
+  .topbar {
+    position: fixed; top: 0; right: 0; left: 0; height: 56px;
+    display: flex; align-items: center; justify-content: flex-end;
+    padding: 0 22px; background: rgba(15,15,18,0.7);
+    border-bottom: 1px solid #1f1f22; z-index: 50;
+  }
+  .topbar a, .topbar span {
+    color: #aaa; text-decoration: none; margin-left: 18px; font-size: 14px;
+    letter-spacing: 2px; padding: 6px 10px; border-radius: 4px;
+  }
+  .topbar a:hover { color: var(--accent); background: rgba(214,162,106,0.08); }
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border: 1px dashed #555; border-radius: 4px;
+    color: #777; font-size: 12px; cursor: pointer; margin-left: 14px;
+  }
+  .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .icon-btn.filled { border-style: solid; }
+  .wrap {
+    max-width: 520px; margin: 110px auto 40px; padding: 36px 40px;
+    background: var(--panel-bg); border: 1px solid #3a3a40; border-radius: 6px;
+  }
+  .tabs { display: flex; gap: 30px; margin-bottom: 28px; border-bottom: 1px solid #2a2a2e; }
+  .tab {
+    padding: 10px 0; cursor: pointer; color: #888; font-size: 18px;
+    letter-spacing: 4px; border-bottom: 2px solid transparent;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  h2 { font-size: 24px; margin-bottom: 22px; letter-spacing: 4px; color: #fff; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; color: #aaa; margin-bottom: 6px; letter-spacing: 2px; }
+  .field .row { display: flex; gap: 8px; }
+  .input {
+    width: 100%; height: 42px; padding: 0 12px;
+    background: #0a0a0c; color: #f0f0f0;
+    border: 1px solid #3a3a40; border-radius: 4px;
+    font-size: 14px; text-align: center;
+  }
+  .input:focus { outline: none; border-color: var(--accent); }
+  .input.code { flex: 1; }
+  .btn {
+    height: 42px; padding: 0 16px;
+    background: var(--btn-bg); color: #e6e6e6;
+    border: 1px solid var(--btn-border); border-radius: 4px;
+    font-size: 14px; letter-spacing: 4px; cursor: pointer;
+  }
+  .btn.primary {
+    width: 100%; height: 46px; margin-top: 6px;
+    background: linear-gradient(#3a2e1a, #1a1410);
+    color: #f0d6a0; border: 1px solid var(--accent);
+    font-size: 16px; letter-spacing: 6px;
+  }
+  .btn:hover:not(:disabled) { background: linear-gradient(#3a3a3f, #1f1f22); border-color: #6a6a72; }
+  .btn.primary:hover:not(:disabled) { background: linear-gradient(#4a3a20, #2a1f15); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .err { color: #e57373; font-size: 13px; min-height: 18px; margin-top: 6px; }
+  .ok { color: #8bc34a; font-size: 13px; min-height: 18px; margin-top: 6px; }
+  .info { color: #aaa; font-size: 12px; margin-top: 12px; line-height: 1.6; }
+  .info b { color: var(--accent); }
+  .hint { color: #888; font-size: 12px; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="deck.html">卡 组</a>
+  <a href="recruit.html">公开招募</a>
+  <a href="diy.html">限定寻访</a>
+  <span id="who" style="color:#cfcfcf"></span>
+  <a id="btnLogout" style="display:none" href="javascript:void(0)">退出</a>
+  <span class="icon-btn" title="设置 (占位)">SET</span>
+</div>
+
+<div class="wrap">
+  <div class="tabs">
+    <div class="tab active" data-tab="login">登 录</div>
+    <div class="tab" data-tab="register">注 册</div>
+    <div class="tab" data-tab="bind">绑定 UID</div>
+  </div>
+
+  <!-- 登录 -->
+  <div class="pane" data-pane="login">
+    <h2>账号登录</h2>
+    <div class="field"><label>邮箱</label><input class="input" id="loginEmail" type="email" placeholder="email@example.com" /></div>
+    <div class="field"><label>密码</label><input class="input" id="loginPwd" type="password" placeholder="••••••" /></div>
+    <button class="btn primary" id="btnLogin">登 录</button>
+    <div class="err" id="loginErr"></div>
+    <div class="info">预置管理员: <b>admin@kards.local</b> / <b>admin123</b></div>
+  </div>
+
+  <!-- 注册 -->
+  <div class="pane" data-pane="register" style="display:none">
+    <h2>邮箱注册</h2>
+    <div class="field"><label>邮箱</label><input class="input" id="regEmail" type="email" placeholder="将使用 163 邮箱发送验证码" /></div>
+    <div class="field">
+      <label>邮箱验证码</label>
+      <div class="row">
+        <input class="input code" id="regCode" type="text" placeholder="6 位数字" maxlength="6" />
+        <button class="btn" id="btnSendCode">发送验证码</button>
+      </div>
+      <div class="hint">当前为占位实现: 验证码会直接弹窗显示并打印到控制台. 真实接入替换 KardsAccount.sendCode 即可.</div>
+    </div>
+    <div class="field"><label>密码</label><input class="input" id="regPwd" type="password" placeholder="登录密码" /></div>
+    <div class="field"><label>确认密码</label><input class="input" id="regPwd2" type="password" placeholder="再次输入" /></div>
+    <button class="btn primary" id="btnRegister">注 册</button>
+    <div class="err" id="regErr"></div>
+    <div class="ok" id="regOk"></div>
+  </div>
+
+  <!-- 绑定 (公开招募 UID / 限定寻访 QQ) -->
+  <div class="pane" data-pane="bind" style="display:none">
+    <h2>绑定账号信息</h2>
+    <div class="info">需要先登录账号. 公开招募页面使用公开招募 UID; 限定寻访页面使用独立的限定寻访 QQ 号.</div>
+
+    <div class="info" id="bindCur" style="margin-top:18px"></div>
+
+    <div class="field" style="margin-top:24px"><label>公开招募 UID (QQ号)</label><input class="input" id="bindUid" type="text" placeholder="例如 912348669" /></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+      <button class="btn" id="btnGetBindCodeKards">获取验证码</button>
+      <span class="hint" id="getCodeKardsHint" style="margin:0">请先填写上方 UID, 然后点获取验证码, 再到群内发送 <code>kards验证码</code></span>
+    </div>
+    <div class="field" style="margin-top:10px"><label>验证码</label><input class="input" id="bindKardsCode" type="text" placeholder="6 位数字, 等待自动填充" maxlength="6" /></div>
+    <button class="btn primary" id="btnBind">验证并绑定</button>
+    <div class="err" id="bindErr"></div>
+    <div class="ok" id="bindOk"></div>
+
+    <div class="field" style="margin-top:30px"><label>限定寻访 QQ 号</label><input class="input" id="bindDiyQQ" type="text" placeholder="与公开招募 UID 可不同" /></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+      <button class="btn" id="btnGetBindCodeDiy">获取验证码</button>
+      <span class="hint" id="getCodeDiyHint" style="margin:0">请先填写上方 QQ 号, 然后点获取验证码, 再到群内发送 <code>diy验证码</code></span>
+    </div>
+    <div class="field" style="margin-top:10px"><label>验证码</label><input class="input" id="bindDiyCode" type="text" placeholder="6 位数字, 等待自动填充" maxlength="6" /></div>
+    <button class="btn primary" id="btnBindDiyQQ">验证并绑定</button>
+    <div class="err" id="bindDiyErr"></div>
+    <div class="ok" id="bindDiyOk"></div>
+  </div>
+</div>
+
+<script src="account.js"></script>
+<script>
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+
+function showTab(name) {
+  $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+  $$(".pane").forEach(p => p.style.display = (p.dataset.pane === name ? "" : "none"));
+  $$(".err, .ok").forEach(e => e.textContent = "");
+}
+$$(".tab").forEach(t => t.addEventListener("click", () => showTab(t.dataset.tab)));
+
+function refreshTopbar() {
+  const cur = KardsAccount.getCurrentAccount();
+  $("#who").textContent = cur ? cur.email + (cur.isAdmin ? " (管理员)" : "") : "未登录";
+  $("#btnLogout").style.display = cur ? "" : "none";
+}
+$("#btnLogout").addEventListener("click", () => { KardsAccount.logout(); refreshTopbar(); showTab("login"); $("#loginEmail").focus(); });
+
+// ===== 登录 =====
+$("#btnLogin").addEventListener("click", async () => {
+  const email = $("#loginEmail").value.trim();
+  const pwd = $("#loginPwd").value;
+  $("#loginErr").textContent = "";
+  try {
+    const acc = await KardsAccount.login({ email, pwd });
+    refreshTopbar();
+    if (!acc.uid) {
+      showTab("bind");
+      refreshBindCur();
+    } else {
+      $("#loginErr").className = "ok";
+      $("#loginErr").textContent = "登录成功, 正在跳转...";
+      setTimeout(() => location.href = "recruit.html", 800);
+    }
+  } catch (e) {
+    $("#loginErr").textContent = e.message;
+  }
+});
+
+// ===== 注册 =====
+$("#btnSendCode").addEventListener("click", async () => {
+  const email = $("#regEmail").value.trim();
+  if (!email) { $("#regErr").textContent = "请先填写邮箱"; return; }
+  $("#regErr").textContent = "";
+  try {
+    const code = await KardsAccount.sendCode(email);
+    alert("验证码已发送(开发模式)\n\n收件人: " + email + "\n验证码: " + code + "\n\n(正式接入 163 SMTP 后将不再显示)");
+  } catch (e) {
+    $("#regErr").textContent = e.message;
+  }
+});
+
+$("#btnRegister").addEventListener("click", async () => {
+  const email = $("#regEmail").value.trim();
+  const code = $("#regCode").value.trim();
+  const pwd = $("#regPwd").value;
+  const pwd2 = $("#regPwd2").value;
+  $("#regErr").textContent = ""; $("#regOk").textContent = "";
+  if (!email || !code || !pwd) { $("#regErr").textContent = "请填写完整信息"; return; }
+  if (pwd !== pwd2) { $("#regErr").textContent = "两次密码不一致"; return; }
+  try {
+    const acc = await KardsAccount.register({ email, pwd, code });
+    $("#regOk").textContent = "注册成功! 请绑定公开招募 UID";
+    showTab("bind");
+    refreshBindCur();
+  } catch (e) {
+    $("#regErr").textContent = e.message;
+  }
+});
+
+// ===== 绑定 (公开招募 UID, 验证码) =====
+function _startKardsCooldown(btn) {
+  let left = 60;
+  const orig = btn.textContent;
+  btn.disabled = true;
+  const timer = setInterval(() => {
+    left -= 1;
+    btn.textContent = "等待验证码 (" + left + "s)";
+    if (left <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = orig; }
+  }, 1000);
+}
+function _startDiyCooldown(btn) {
+  let left = 60;
+  const orig = btn.textContent;
+  btn.disabled = true;
+  const timer = setInterval(() => {
+    left -= 1;
+    btn.textContent = "等待验证码 (" + left + "s)";
+    if (left <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = orig; }
+  }, 1000);
+}
+
+$("#btnGetBindCodeKards").addEventListener("click", () => {
+  const cur = KardsAccount.getCurrentAccount();
+  if (!cur) { showTab("login"); $("#loginErr").textContent = "请先登录"; return; }
+  const uid = $("#bindUid").value.trim();
+  if (!uid) { $("#getCodeKardsHint").textContent = "请先填写上方公开招募 UID"; return; }
+  $("#bindErr").textContent = ""; $("#bindOk").textContent = "";
+  $("#bindKardsCode").value = "";
+  $("#getCodeKardsHint").textContent = "请到 QQ 群内发送: kards验证码, 验证码将自动填充下方";
+  const btn = $("#btnGetBindCodeKards");
+  _startKardsCooldown(btn);
+  KardsAccount.pollBindCode("kards_uid_bind", uid, {
+    onFound: (item) => {
+      $("#bindKardsCode").value = item.code;
+      $("#getCodeKardsHint").textContent = "已获取验证码, 请点击下方验证并绑定";
+    },
+    onTimeout: (msg) => {
+      $("#getCodeKardsHint").textContent = msg + ", 也可手动填入后点验证";
+    }
+  });
+});
+
+$("#btnBind").addEventListener("click", async () => {
+  const cur = KardsAccount.getCurrentAccount();
+  if (!cur) { showTab("login"); $("#loginErr").textContent = "请先登录"; return; }
+  const uid = $("#bindUid").value.trim();
+  const code = $("#bindKardsCode").value.trim();
+  if (!uid) { $("#bindErr").textContent = "请输入 UID"; return; }
+  if (!code) { $("#bindErr").textContent = "请先获取验证码或手动填入"; return; }
+  $("#bindErr").textContent = ""; $("#bindOk").textContent = "";
+  // 先本地校验, 失败时回退到 serve.py 远程校验 (见 diy 路径注释)
+  if (!KardsAccount.verifyKardsCode(uid, code)) {
+    const r = await KardsAccount.verifyBindCodeRemote("kards_uid_bind", uid, code);
+    if (!r || !r.ok) {
+      $("#bindErr").textContent = (r && r.msg) ? r.msg : "验证码无效或已过期, 请重新获取";
+      return;
+    }
+  }
+  try {
+    KardsAccount.bindUid(uid);
+    $("#bindOk").textContent = "绑定成功!";
+    refreshBindCur();
+  } catch (e) {
+    $("#bindErr").textContent = e.message;
+  }
+});
+
+$("#btnGetBindCodeDiy").addEventListener("click", () => {
+  const cur = KardsAccount.getCurrentAccount();
+  if (!cur) { showTab("login"); $("#loginErr").textContent = "请先登录"; return; }
+  const qq = $("#bindDiyQQ").value.trim();
+  if (!qq) { $("#getCodeDiyHint").textContent = "请先填写上方限定寻访 QQ 号"; return; }
+  $("#bindDiyErr").textContent = ""; $("#bindDiyOk").textContent = "";
+  $("#bindDiyCode").value = "";
+  $("#getCodeDiyHint").textContent = "请到 QQ 群内发送: diy验证码, 验证码将自动填充下方";
+  const btn = $("#btnGetBindCodeDiy");
+  _startDiyCooldown(btn);
+  KardsAccount.pollBindCode("diy_qq_bind", qq, {
+    onFound: (item) => {
+      $("#bindDiyCode").value = item.code;
+      $("#getCodeDiyHint").textContent = "已获取验证码, 请点击下方验证并绑定";
+    },
+    onTimeout: (msg) => {
+      $("#getCodeDiyHint").textContent = msg + ", 也可手动填入后点验证";
+    }
+  });
+});
+
+$("#btnBindDiyQQ").addEventListener("click", async () => {
+  const qq = $("#bindDiyQQ").value.trim();
+  const code = $("#bindDiyCode").value.trim();
+  if (!qq) { $("#bindDiyErr").textContent = "请输入 QQ 号"; return; }
+  if (!code) { $("#bindDiyErr").textContent = "请先获取验证码或手动填入"; return; }
+  $("#bindDiyErr").textContent = ""; $("#bindDiyOk").textContent = "";
+  // 先本地校验 (前端轮询成功过的最快路径), 失败时回退到让 serve.py 远程校验
+  // 解决 "bot 与前端不在同一内网 / KARDS_FRONTEND_URL 没配对" 时手填码卡死
+  if (!KardsAccount.verifyDiyCode(qq, code)) {
+    const r = await KardsAccount.verifyBindCodeRemote("diy_qq_bind", qq, code);
+    if (!r || !r.ok) {
+      $("#bindDiyErr").textContent = (r && r.msg) ? r.msg : "验证码无效或已过期, 请重新获取";
+      return;
+    }
+  }
+  try {
+    KardsAccount.bindDiyQQ(qq);
+    $("#bindDiyOk").textContent = "绑定成功!";
+    refreshBindCur();
+  } catch (e) {
+    $("#bindDiyErr").textContent = e.message;
+  }
+});
+
+function refreshBindCur() {
+  const cur = KardsAccount.getCurrentAccount();
+  if (!cur) { $("#bindCur").innerHTML = ""; return; }
+  const uidPart = cur.uid ? `公开招募 UID <b>${cur.uid}</b>` : `<span style="color:#e57373">公开招募 UID 未绑定</span>`;
+  const diyPart = cur.diyQQ ? `限定寻访 QQ <b>${cur.diyQQ}</b>` : `<span style="color:#e57373">限定寻访 QQ 未绑定</span>`;
+  $("#bindCur").innerHTML = `账号 <b>${cur.email}</b> 当前状态: ${uidPart} / ${diyPart}`;
+}
+
+(async function init() {
+  await KardsAccount.ensureSeed();
+  const cur = KardsAccount.getCurrentAccount();
+  refreshTopbar();
+  if (cur) {
+    if (cur.uid) showTab("login");
+    else showTab("bind");
+    refreshBindCur();
+  } else {
+    showTab("login");
+    $("#loginEmail").focus();
+  }
+})();
+</script>
+</body>
+</html>
+
+
+
+
+

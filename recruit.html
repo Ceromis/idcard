@@ -1,0 +1,515 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>KARDS 公开招募</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --panel-bg: rgba(20, 22, 26, 0.92);
+    --panel-border: #3a3a40;
+    --btn-bg: linear-gradient(#2c2c30, #1a1a1c);
+    --btn-border: #4a4a50;
+    --text: #e6e6e6;
+    --accent: #d6a26a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    color: var(--text);
+    background: #0c0c0e url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.9'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>");
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .side-nav {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 110px;
+    background: rgba(15, 15, 18, 0.6);
+    border-right: 1px solid #1f1f22;
+    display: flex; flex-direction: column;
+    padding: 30px 10px; gap: 14px;
+  }
+  .side-nav .slot {
+    height: 90px;
+    border: 1px dashed #555;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    color: #777; font-size: 14px; letter-spacing: 4px;
+    text-decoration: none;
+    transition: all .15s;
+  }
+  .side-nav a.slot:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(214,162,106,0.06);
+  }
+  .main {
+    margin-left: 110px; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 40px 20px;
+  }
+  .panel {
+    width: 1100px; max-width: 100%; min-height: 560px;
+    background: var(--panel-bg);
+    border: 1px solid #4a4a52;
+    box-shadow: inset 0 0 60px rgba(0,0,0,0.6), 0 0 30px rgba(0,0,0,0.5);
+    border-radius: 6px; padding: 40px 60px; position: relative;
+  }
+  .panel::before {
+    content: ""; position: absolute; inset: 0;
+    background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><filter id='n'><feTurbulence baseFrequency='0.65' numOctaves='2'/><feColorMatrix values='0 0 0 0 0.9  0 0 0 0 0.9  0 0 0 0 0.9  0 0 0 0.05 0'/></filter><rect width='400' height='400' filter='url(%23n)'/></svg>");
+    pointer-events: none; opacity: 0.4;
+  }
+  .panel-inner { position: relative; z-index: 1; }
+  .top-row {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 40px; align-items: start; margin-bottom: 30px;
+  }
+  .tags { display: flex; flex-direction: column; gap: 14px; }
+  .tag {
+    height: 56px;
+    border: 1px solid #5a5a62;
+    background: linear-gradient(#262629, #1a1a1c);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; letter-spacing: 4px;
+    cursor: pointer; user-select: none;
+    transition: all .15s ease;
+    color: #cfcfcf;
+  }
+  .tag:hover { background: linear-gradient(#2e2e32, #1f1f22); }
+  .tag.selected {
+    background: linear-gradient(#3a2e1a, #1a1410);
+    border-color: var(--accent);
+    color: #f0d6a0;
+    box-shadow: inset 0 0 12px rgba(214,162,106,0.3);
+  }
+  .tag.tag-senior.selected {
+    color: #d4a44a;
+    text-shadow: 0 0 6px rgba(212,164,74,0.45);
+  }
+  .tag.tag-highsenior.selected {
+    background: linear-gradient(#3a2e1a, #1a1410);
+    border-color: var(--accent);
+    color: #f7d684;
+    background-clip: padding-box;
+    -webkit-background-clip: text;
+    background-image: linear-gradient(180deg, #6a4a18 0%, #c8961f 45%, #f5d77a 100%);
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 8px rgba(245,215,122,0.25);
+  }
+  .tag.disabled { opacity: 0.4; cursor: not-allowed; }
+  .info-side { display: flex; flex-direction: column; gap: 24px; padding-top: 6px; }
+  .duration { display: flex; align-items: baseline; gap: 16px; font-size: 22px; }
+  .duration .label { color: #b8b8b8; }
+  .duration .time { font-size: 30px; color: #fff; letter-spacing: 2px; }
+  .bottom-row {
+    margin-top: 30px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 40px; align-items: end;
+  }
+  .refresh-meta { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .refresh-meta .small { color: #aaa; font-size: 14px; }
+  .refresh-meta .small b { color: #fff; font-weight: 500; }
+  .start-side { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; position: relative; }
+  .ticket-row { display: flex; align-items: center; gap: 10px; color: #cfcfcf; font-size: 18px; }
+  .ticket-row .tickets { display: flex; gap: 6px; }
+  .ticket-row img { width: 36px; height: 36px; object-fit: contain; }
+  .btn {
+    min-width: 220px; height: 52px;
+    background: var(--btn-bg);
+    border: 1px solid var(--btn-border);
+    color: #e6e6e6;
+    font-size: 22px; letter-spacing: 6px;
+    cursor: pointer; transition: all .15s;
+  }
+  .btn:hover:not(:disabled) {
+    background: linear-gradient(#3a3a3f, #1f1f22);
+    border-color: #6a6a72;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.refresh { letter-spacing: 4px; }
+  .login-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  .login-box {
+    width: 420px; padding: 40px;
+    background: #1a1a1e;
+    border: 1px solid #4a4a52;
+    border-radius: 6px; text-align: center;
+  }
+  .login-box h2 { font-size: 24px; margin-bottom: 24px; color: #d6a26a; letter-spacing: 4px; }
+  .login-box input {
+    width: 100%; height: 44px; padding: 0 12px;
+    background: #0a0a0c; color: #eee;
+    border: 1px solid #4a4a52; border-radius: 4px;
+    font-size: 16px; margin-bottom: 18px; text-align: center;
+  }
+  .login-box input:focus { outline: none; border-color: var(--accent); }
+  .login-box .err { color: #e57373; font-size: 13px; min-height: 18px; margin-bottom: 8px; }
+  .login-box button {
+    width: 100%; height: 48px;
+    background: linear-gradient(#3a2e1a, #1a1410);
+    color: #f0d6a0;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    font-size: 18px; letter-spacing: 6px; cursor: pointer;
+  }
+  .login-box button:hover { background: linear-gradient(#4a3a20, #2a1f15); }
+  .toast {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    padding: 12px 24px; background: rgba(0,0,0,0.85);
+    border: 1px solid var(--accent); color: #f0d6a0;
+    border-radius: 4px; z-index: 200; font-size: 14px;
+    opacity: 0; transition: opacity .2s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .toast.err { border-color: #e57373; color: #ffb4b4; }
+  .topbar {
+    position: fixed; top: 0; right: 0; left: 110px; height: 48px;
+    display: flex; align-items: center; justify-content: flex-end;
+    padding: 0 22px; background: rgba(15,15,18,0.7);
+    border-bottom: 1px solid #1f1f22; z-index: 50;
+  }
+  .topbar a, .topbar span {
+    color: #aaa; text-decoration: none; margin-left: 18px; font-size: 14px;
+    letter-spacing: 2px; padding: 6px 10px; border-radius: 4px;
+  }
+  .topbar a:hover { color: var(--accent); background: rgba(214,162,106,0.08); }
+  .topbar .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border: 1px dashed #555; border-radius: 4px;
+    color: #777; font-size: 12px; margin-left: 14px;
+  }
+  .topbar .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .gate-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+    display: flex; align-items: center; justify-content: center; z-index: 150;
+  }
+  .gate-box {
+    width: 420px; padding: 30px 36px;
+    background: #1a1a1e; border: 1px solid #4a4a52; border-radius: 6px;
+    text-align: center;
+  }
+  .gate-box h2 { color: var(--accent); letter-spacing: 4px; margin-bottom: 18px; font-size: 22px; }
+  .gate-box .input {
+    width: 100%; height: 42px; margin-bottom: 10px; padding: 0 12px;
+    background: #0a0a0c; color: #eee;
+    border: 1px solid #4a4a52; border-radius: 4px; text-align: center; font-size: 14px;
+  }
+  .gate-box .input:focus { outline: none; border-color: var(--accent); }
+  .gate-box .err { color: #e57373; font-size: 13px; min-height: 18px; margin-bottom: 6px; }
+  .gate-box button {
+    width: 100%; height: 46px; margin-top: 4px;
+    background: linear-gradient(#3a2e1a, #1a1410);
+    color: #f0d6a0; border: 1px solid var(--accent); border-radius: 4px;
+    font-size: 16px; letter-spacing: 6px; cursor: pointer;
+  }
+  .gate-box .meta { color: #888; font-size: 12px; margin-top: 14px; }
+  .gate-box .meta a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="side-nav" id="sideNav">
+  <a class="slot" href="deck.html" title="卡组">卡 组</a>
+  <a class="slot" href="diy.html" title="限定寻访">限定寻访</a>
+  <a class="slot" href="recruit.html" title="公开招募">公开招募</a>
+  <a class="slot admin-only" href="settings.html" title="管理面板" style="display:none">管 理</a>
+  <div class="slot">菜单 3</div>
+</div>
+
+<div class="topbar">
+  <a href="account.html">账 号</a>
+  <span id="who" style="color:#cfcfcf"></span>
+  <a id="btnLogout" style="display:none" href="javascript:void(0)">退出</a>
+  <a class="icon-btn" href="settings.html" title="设置">SET</a>
+</div>
+
+<div class="main">
+  <div class="panel">
+    <div class="panel-inner">
+      <div class="top-row">
+        <div class="tags" id="tags">
+          <div class="tag" data-idx="0">--</div>
+          <div class="tag" data-idx="1">--</div>
+          <div class="tag" data-idx="2">--</div>
+          <div class="tag" data-idx="3">--</div>
+          <div class="tag" data-idx="4">--</div>
+        </div>
+        <div class="info-side">
+          <div class="duration">
+            <span class="label">预计招募时长</span>
+            <span class="time" id="durationTime">00:00:00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-row">
+        <div class="refresh-meta">
+          <div class="small">可刷新次数 <b><span id="refreshRemaining">3</span> / <span id="refreshLimit">3</span></b></div>
+          <button class="btn refresh" id="btnRefresh">刷新词条</button>
+        </div>
+        <div class="start-side">
+          <div class="ticket-row">
+            <span>预算：</span>
+            <span class="tickets" id="tickets"></span>
+          </div>
+          <button class="btn" id="btnStart">开始招募</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="gate-overlay" id="gateLogin" style="display:none">
+  <div class="gate-box">
+    <h2>需先登录账号</h2>
+    <div class="err" id="gateLoginErr"></div>
+    <input class="input" id="gateLoginEmail" type="email" placeholder="邮箱" />
+    <input class="input" id="gateLoginPwd" type="password" placeholder="密码" />
+    <button id="btnGateLogin">登 录</button>
+    <div class="meta">还没有账号? <a href="account.html">前往注册</a></div>
+  </div>
+</div>
+<div class="gate-overlay" id="gateBind" style="display:none">
+  <div class="gate-box">
+    <h2>需先绑定公开招募 UID</h2>
+    <div class="err" id="gateBindErr"></div>
+    <input class="input" id="gateBindUid" type="text" placeholder="公开招募 UID (QQ号)" />
+    <button id="btnGateBind">绑 定</button>
+    <div class="meta">将打开账号页面完成绑定, <a href="account.html" id="gateBindGo">前往</a></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="account.js"></script>
+<script>
+let API_BASE = KardsAccount.DEFAULT_API;
+let UID = "";
+const MAX_CHOICE = 3;
+// UID 实际值由 initGate 注入 (来自当前账号绑定)
+let currentTags = [];
+let ticketCount = 0;
+
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+
+function showToast(msg, isErr) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "toast show" + (isErr ? " err" : "");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.className = "toast", 2200);
+}
+
+function calcDurationFromTags(tags) {
+  if (tags.includes("高级资深卡牌")) return 120;
+  if (tags.includes("资深卡牌")) return 60;
+  return 30;
+}
+
+function formatDuration(min) {
+  const h = String(Math.floor(min / 60)).padStart(2, "0");
+  const m = String(min % 60).padStart(2, "0");
+  const s = String(min % 60 === 0 ? 0 : 0).padStart(2, "0");
+  return h + ":" + m + ":00";
+}
+
+async function apiPost(path, body) {
+  const res = await fetch(API_BASE + path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {})
+  });
+  return await res.json();
+}
+
+function renderTags() {
+  const nodes = $$(".tag");
+  currentTags.forEach((name, i) => {
+    const node = nodes[i];
+    if (!node) return;
+    node.textContent = name || "--";
+    node.classList.remove("selected", "disabled", "tag-senior", "tag-highsenior");
+    if (!name) { node.classList.add("disabled"); return; }
+    if (name === "高级资深卡牌") node.classList.add("tag-highsenior");
+    else if (name === "资深卡牌") node.classList.add("tag-senior");
+  });
+  updateDuration();
+}
+
+function getSelected() {
+  const nodes = $$(".tag");
+  const sel = [];
+  nodes.forEach((n, i) => { if (n.classList.contains("selected") && currentTags[i]) sel.push(i); });
+  return sel;
+}
+
+function updateDuration() {
+  const sel = getSelected();
+  if (sel.length === 0) { $("#durationTime").textContent = "00:00:00"; return; }
+  const min = calcDurationFromTags(sel.map(i => currentTags[i]));
+  $("#durationTime").textContent = formatDuration(min);
+}
+
+function renderTickets(n) {
+  ticketCount = n || 0;
+  const wrap = $("#tickets");
+  wrap.innerHTML = "";
+  for (let i = 0; i < ticketCount; i++) {
+    const img = document.createElement("img");
+    img.src = "jjc.png";
+    img.alt = "许可";
+    wrap.appendChild(img);
+  }
+}
+
+$$(".tag").forEach(node => {
+  node.addEventListener("click", () => {
+    if (node.classList.contains("disabled") || !currentTags[+node.dataset.idx]) return;
+    if (node.classList.contains("selected")) {
+      node.classList.remove("selected");
+    } else {
+      const sel = getSelected();
+      if (sel.length >= MAX_CHOICE) { showToast("最多只能选择 " + MAX_CHOICE + " 个词条", true); return; }
+      node.classList.add("selected");
+    }
+    updateDuration();
+  });
+});
+
+$("#btnRefresh").addEventListener("click", async () => {
+  const rem = parseInt($("#refreshRemaining").textContent || "0", 10);
+  if (rem <= 0) { showToast("今日刷新次数已用完", true); return; }
+  try {
+    const resp = await apiPost("/kards/refresh_tags", { uid: UID });
+    if (resp.code === 401) { showToast("请重新登录", true); location.href = "account.html"; return; }
+    if (resp.code !== 0) { showToast(resp.msg || "刷新失败", true); return; }
+    currentTags = resp.data.tags || [];
+    $("#refreshRemaining").textContent = Math.max(0, (resp.data.refresh_limit || 3) - (resp.data.refresh_used || 0));
+    $("#refreshLimit").textContent = resp.data.refresh_limit;
+    renderTags();
+    showToast("词条已刷新");
+  } catch (e) {
+    showToast("网络错误: " + e.message, true);
+  }
+});
+
+$("#btnStart").addEventListener("click", async () => {
+  const sel = getSelected();
+  if (sel.length === 0) { showToast("请至少选择 1 个词条", true); return; }
+  if (currentTags.includes("高级资深卡牌") && !sel.some(i => currentTags[i] === "高级资深卡牌")) {
+    showToast("不要你就给作者", true); return;
+  }
+  if (ticketCount <= 0) { showToast("没有可用的招募许可", true); return; }
+  const choices = sel.map(i => String.fromCharCode(65 + i)).join("");
+  try {
+    const resp = await apiPost("/kards/start_recruit", { uid: UID, choices });
+    if (resp.code === 401) { showToast("请重新登录", true); location.href = "account.html"; return; }
+    if (resp.code !== 0) { showToast(resp.msg || "招募失败", true); return; }
+    showToast("招募已开始，预计 " + formatDuration(resp.data.duration) + " 完成");
+    await loadUserInfo();
+  } catch (e) {
+    showToast("网络错误: " + e.message, true);
+  }
+});
+
+
+
+
+// in-flight 锁: 切回页面 / 切 tab 反复触发时复用同一个 promise, 避免并发拉同一份数据
+let _loadUserInfoInflight = null;
+function loadUserInfo() {
+  if (_loadUserInfoInflight) return _loadUserInfoInflight;
+  _loadUserInfoInflight = (async () => {
+    try {
+      const resp = await apiPost("/kards/user_info", { uid: UID });
+      if (resp.code !== 0) return;
+      currentTags = resp.data.tags || [];
+      $("#refreshRemaining").textContent = Math.max(0, (resp.data.refresh_limit || 3) - (resp.data.refresh_times || 0));
+      $("#refreshLimit").textContent = resp.data.refresh_limit;
+      renderTickets(resp.data.tickets);
+      renderTags();
+      updateDuration();
+    } catch (e) {}
+    finally { _loadUserInfoInflight = null; }
+  })();
+  return _loadUserInfoInflight;
+}
+
+async function initGate() {
+  await KardsAccount.ensureSeed();
+  const s = KardsAccount.loadSettings();
+  API_BASE = s.apiBase;
+  const cur = KardsAccount.getCurrentAccount();
+  function paintTopbar() {
+    const who = document.getElementById("who");
+    const out = document.getElementById("btnLogout");
+    if (who) who.textContent = cur ? cur.email + (cur.isAdmin ? " (管理员)" : "") : "未登录";
+    if (out) out.style.display = cur ? "" : "none";
+    document.querySelectorAll(".admin-only").forEach(n => n.style.display = (cur && cur.isAdmin) ? "" : "none");
+  }
+  paintTopbar();
+  const out = document.getElementById("btnLogout");
+  if (out) out.addEventListener("click", () => { KardsAccount.logout(); location.href = "account.html"; });
+  if (!cur) { document.getElementById("gateLogin").style.display = "flex"; return; }
+  if (!cur.uid) { document.getElementById("gateBind").style.display = "flex"; return; }
+  UID = cur.uid;
+
+// 切回页面时自动刷新数据 (visibilitychange 覆盖切 tab/最小化还原; pageshow 覆盖 bfcache 返回)
+async function refreshOnVisible() {
+  if (document.hidden) return;
+  const c = KardsAccount.getCurrentAccount();
+  if (!c || !c.uid) return;
+  try { await loadUserInfo(); } catch (e) {}
+}
+document.addEventListener("visibilitychange", refreshOnVisible);
+window.addEventListener("pageshow", refreshOnVisible);
+window.addEventListener("focus", refreshOnVisible);
+}
+document.getElementById("btnGateLogin").addEventListener("click", async () => {
+  document.getElementById("gateLoginErr").textContent = "";
+  try {
+    const acc = await KardsAccount.login({ email: document.getElementById("gateLoginEmail").value, pwd: document.getElementById("gateLoginPwd").value });
+    if (!acc.uid) { document.getElementById("gateLogin").style.display = "none"; document.getElementById("gateBind").style.display = "flex"; }
+    else { location.reload(); }
+  } catch (e) { document.getElementById("gateLoginErr").textContent = e.message; }
+});
+const gatePwd = document.getElementById("gateLoginPwd");
+if (gatePwd) gatePwd.addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("btnGateLogin").click(); });
+document.getElementById("btnGateBind").addEventListener("click", () => { location.href = "account.html"; });
+document.getElementById("gateBindGo").addEventListener("click", () => { location.href = "account.html"; });
+initGate();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

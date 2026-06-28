@@ -1,0 +1,716 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>KARDS 限定寻访</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --panel-bg: rgba(20, 22, 26, 0.92);
+    --btn-bg: linear-gradient(#2c2c30, #1a1a1c);
+    --btn-border: #4a4a50;
+    --text: #e6e6e6;
+    --accent: #d6a26a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    color: var(--text);
+    background: #0c0c0e url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.9'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>");
+    min-height: 100vh;
+  }
+  .topbar {
+    position: fixed; top: 0; right: 0; left: 110px; height: 48px;
+    display: flex; align-items: center; justify-content: flex-end;
+    padding: 0 22px; background: rgba(15,15,18,0.7);
+    border-bottom: 1px solid #1f1f22; z-index: 50;
+  }
+  .topbar a, .topbar span {
+    color: #aaa; text-decoration: none; margin-left: 18px; font-size: 14px;
+    letter-spacing: 2px; padding: 6px 10px; border-radius: 4px;
+  }
+  .topbar a:hover { color: var(--accent); background: rgba(214,162,106,0.08); }
+  .topbar .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border: 1px dashed #555; border-radius: 4px;
+    color: #777; font-size: 12px; margin-left: 14px;
+  }
+  .topbar .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .side-nav {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 110px;
+    background: rgba(15, 15, 18, 0.6);
+    border-right: 1px solid #1f1f22;
+    display: flex; flex-direction: column;
+    padding: 30px 10px; gap: 14px;
+  }
+  .side-nav .slot {
+    height: 90px;
+    border: 1px dashed #555;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    color: #777; font-size: 14px; letter-spacing: 4px;
+    text-decoration: none;
+    transition: all .15s;
+  }
+  .side-nav a.slot:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(214,162,106,0.06);
+  }
+  .side-nav a.slot.admin-only { display: none; }
+  .main {
+    margin-left: 110px; margin-top: 48px;
+    min-height: calc(100vh - 48px);
+    padding: 30px 40px;
+  }
+  .tabs { display: flex; gap: 30px; margin-bottom: 24px; border-bottom: 1px solid #2a2a2e; align-items: center; }
+  .tab-spacer { flex: 1; }
+  .tab-refresh {
+    padding: 4px 14px; font-size: 13px; letter-spacing: 2px;
+    color: var(--accent); background: transparent;
+    border: 1px solid var(--accent); border-radius: 4px;
+    cursor: pointer; transition: all .15s;
+    margin-bottom: -1px;  /* 与 .tabs 边框对齐 */
+  }
+  .tab-refresh:hover { background: rgba(214,162,106,.12); }
+  .tab-refresh:disabled { opacity: .5; cursor: wait; }
+  .tab {
+    padding: 10px 0; cursor: pointer; color: #888; font-size: 18px;
+    letter-spacing: 4px; border-bottom: 2px solid transparent;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* 鉴赏桌 两列布局 */
+  .pane { display: none; }
+  .pane.active { display: block; }
+  .review-grid {
+    /* 固定高度 + 显式 grid-template-rows, 避免被左侧大图撑大导致整个页面被拉长 */
+    display: grid; grid-template-columns: 520px 1fr; gap: 32px;
+    height: 620px;
+    background: var(--panel-bg);
+    border: 1px solid #3a3a40; border-radius: 6px; padding: 28px;
+    overflow: hidden;
+  }
+  .card-stage {
+    /* 固定宽高正方形 480x480; 移除外层 overflow: hidden 让 hover 放大/旋转能溢出显示
+       (溢出由外层 .review-grid 的 overflow: hidden 兜底, 不会撑开页面) */
+    display: flex; align-items: center; justify-content: center;
+    background: #0a0a0c; border: 1px solid #2a2a2e; border-radius: 6px;
+    width: 480px; height: 480px;
+    padding: 14px;
+    flex-shrink: 0;
+  }
+  .card-stage {
+    /* perspective 让子元素的 rotateX/rotateY 有 3D 透视效果 */
+    perspective: 800px;
+    cursor: pointer;
+  }
+  .card-stage img {
+    /* max-width/height 给个明确上限, 防浏览器在数据 URL 加载完成前先用原尺寸撑开 */
+    max-width: 100%; max-height: 100%;
+    width: auto; height: auto;
+    object-fit: contain; display: block;
+    transform-origin: center center;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    will-change: transform;
+    border-radius: 4px;
+  }
+  /* 鼠标悬停时: 略微放大 + 抬起阴影 */
+  .card-stage:hover img {
+    transform: scale(1.10);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(214, 162, 106, 0.25);
+  }
+  .card-stage .placeholder { color: #555; font-size: 14px; letter-spacing: 4px; text-align: center; }
+  .card-stage .error { color: #e57373; font-size: 14px; text-align: center; }
+  .info-pane { display: flex; flex-direction: column; }
+  .sub-tabs { display: flex; gap: 14px; margin-bottom: 18px; }
+  .sub-tab {
+    padding: 6px 18px; cursor: pointer; color: #aaa; font-size: 14px;
+    letter-spacing: 2px; border: 1px solid #3a3a40; border-radius: 4px;
+    background: transparent;
+  }
+  .sub-tab.active { color: var(--accent); border-color: var(--accent); background: rgba(214,162,106,0.08); }
+  .info-title { font-size: 28px; color: #fff; letter-spacing: 4px; margin-bottom: 20px; min-height: 38px; }
+  .info-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+  .info-row { color: #cfcfcf; font-size: 15px; letter-spacing: 1px; display: flex; gap: 10px; }
+  .info-row .k { color: #888; min-width: 72px; }
+  .info-row .v { color: #fff; }
+  .actions { margin-top: auto; display: flex; flex-direction: column; gap: 14px; }
+  .react-row { display: flex; gap: 12px; }
+  .react-btn {
+    flex: 1; height: 60px;
+    background: var(--btn-bg); color: #e6e6e6;
+    border: 1px solid var(--btn-border); border-radius: 4px;
+    font-size: 18px; letter-spacing: 2px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .react-btn:hover:not(:disabled) { background: linear-gradient(#3a3a3f, #1f1f22); border-color: #6a6a72; }
+  .react-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .react-btn .icon { font-size: 24px; }
+  .react-btn .count { font-size: 13px; color: #aaa; }
+  .btn-primary {
+    height: 52px;
+    background: linear-gradient(#3a2e1a, #1a1410);
+    color: #f0d6a0;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    font-size: 18px; letter-spacing: 8px; cursor: pointer;
+  }
+  .btn-primary:hover:not(:disabled) { background: linear-gradient(#4a3a20, #2a1f15); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-danger { color: #e57373; border-color: #6a2a2a; background: linear-gradient(#2c1414, #1a0e0e); }
+  .btn-danger:hover:not(:disabled) { background: linear-gradient(#4a1f1f, #2a1212); border-color: #c64a4a; color: #fff; }
+
+  /* 我的投稿 栅格 */
+  .my-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 18px;
+  }
+  .my-card {
+    background: var(--panel-bg);
+    border: 1px solid #3a3a40; border-radius: 6px; padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+    cursor: pointer; user-select: none;
+    transition: border-color .15s, transform .15s, box-shadow .15s;
+  }
+  .my-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.4); }
+  .my-card img { width: 100%; aspect-ratio: 2/3; object-fit: contain; background: #0a0a0c; border-radius: 4px; }
+  .my-card .meta { color: #cfcfcf; font-size: 13px; display: flex; justify-content: space-between; }
+  .my-card .state { color: var(--accent); }
+  .my-card .counts { color: #888; font-size: 12px; display: flex; gap: 10px; }
+  .empty { color: #888; font-size: 14px; text-align: center; padding: 60px 0; }
+
+  /* 门控 overlay */
+  .gate-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+    display: flex; align-items: center; justify-content: center; z-index: 150;
+  }
+  .gate-box {
+    width: 420px; padding: 30px 36px;
+    background: #1a1a1e; border: 1px solid #4a4a52; border-radius: 6px;
+    text-align: center;
+  }
+  .gate-box h2 { color: var(--accent); letter-spacing: 4px; margin-bottom: 18px; font-size: 22px; }
+  .gate-box .meta { color: #888; font-size: 12px; margin-top: 14px; }
+  .gate-box .meta a { color: var(--accent); text-decoration: none; }
+
+  /* toast */
+  .toast {
+    position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+    padding: 10px 20px; background: rgba(0,0,0,0.85);
+    border: 1px solid var(--accent); color: #f0d6a0;
+    border-radius: 4px; z-index: 200; font-size: 13px;
+    opacity: 0; transition: opacity .2s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .toast.err { border-color: #e57373; color: #ffb4b4; }
+</style>
+</head>
+<body>
+
+<div class="side-nav" id="sideNav">
+  <a class="slot" href="deck.html" title="卡组">卡 组</a>
+  <a class="slot" href="recruit.html" title="公开招募">公开招募</a>
+  <a class="slot" href="diy.html" title="限定寻访">限定寻访</a>
+  <a class="slot admin-only" href="settings.html" title="管理面板" style="display:none">管 理</a>
+  <div class="slot" style="font-size:12px">菜单 5</div>
+</div>
+
+<div class="topbar">
+  <a href="deck.html">卡 组</a>
+  <a href="recruit.html">公开招募</a>
+  <a href="diy.html">限定寻访</a>
+  <a href="account.html">账 号</a>
+  <span id="who" style="color:#cfcfcf"></span>
+  <a id="btnLogout" style="display:none" href="javascript:void(0)">退出</a>
+  <a class="icon-btn" href="settings.html" title="设置">SET</a>
+</div>
+
+<div class="main">
+  <div class="tabs">
+    <div class="tab active" data-tab="review">鉴赏桌</div>
+    <div class="tab" data-tab="mine">我的投稿</div>
+    <div class="tab-spacer"></div>
+    <button class="tab-refresh" id="btnRefreshMine" style="display:none" title="刷新我的投稿">↻ 刷新</button>
+  </div>
+
+  <!-- 鉴赏桌 -->
+  <div class="pane active" data-pane="review">
+    <div class="review-grid">
+      <div class="card-stage" id="cardStage">
+        <div class="placeholder">点击"再来一张"获取 DIY 卡牌</div>
+      </div>
+      <div class="info-pane">
+        <div class="sub-tabs">
+          <div class="sub-tab active" data-mode="random">限定寻访</div>
+          <div class="sub-tab" data-mode="random_special">联动寻访</div>
+        </div>
+        <div class="info-title" id="infoTitle"></div>
+        <div class="info-list" id="infoList"></div>
+        <div class="actions">
+          <div class="react-row">
+            <button class="react-btn" id="btnLike" disabled>
+              <span class="icon">👍</span>
+              <span class="count" id="cntLike">0</span>
+            </button>
+            <button class="react-btn" id="btnDislike" disabled>
+              <span class="icon">👎</span>
+              <span class="count" id="cntDislike">0</span>
+            </button>
+            <button class="react-btn" id="btnCandy" disabled>
+              <span class="icon">🍬</span>
+              <span class="count" id="cntCandy">0</span>
+            </button>
+          </div>
+          <button class="react-btn btn-danger" id="btnDeleteThis" style="display:none">🗑 删除该卡</button>
+                    <button class="btn-primary" id="btnNext">再 来 一 张</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 我的投稿 -->
+  <div class="pane" data-pane="mine">
+    <div id="myContent">
+      <div class="empty">加载中...</div>
+    </div>
+  </div>
+</div>
+
+<div class="gate-overlay" id="gateLogin" style="display:none">
+  <div class="gate-box">
+    <h2>需先登录账号</h2>
+    <div class="meta">还没有账号? <a href="account.html">前往注册</a></div>
+  </div>
+</div>
+<div class="gate-overlay" id="gateBind" style="display:none">
+  <div class="gate-box">
+    <h2>需先绑定限定寻访 QQ</h2>
+    <div class="meta">将打开账号页面完成绑定, <a href="account.html" id="gateBindGo">前往</a></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="account.js"></script>
+<script>
+const $ = (s) => document.querySelector(s);
+let API_BASE = KardsAccount.DEFAULT_DIY_API;
+let currentMode = "random";
+let currentCard = null;
+let reactUsed = new Set(); // 本地防重 (前端标记)
+
+function showToast(msg, isErr) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "toast show" + (isErr ? " err" : "");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.className = "toast", 2200);
+}
+
+// signal 可选, 用于 AbortController 取消上一次未完成的请求
+async function apiGet(path, signal) {
+  const res = await fetch(API_BASE + path, { method: "GET", signal });
+  return await res.json();
+}
+async function apiPost(path, body, signal) {
+  const res = await fetch(API_BASE + path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+    signal
+  });
+  return await res.json();
+}
+
+// ===== tab 切换 =====
+function showTab(name) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+  document.querySelectorAll(".pane").forEach(p => p.classList.toggle("active", p.dataset.pane === name));
+  // 刷新按钮: 仅“我的投稿” tab 可见
+  const refreshBtn = document.getElementById("btnRefreshMine");
+  if (refreshBtn) refreshBtn.style.display = (name === "mine") ? "" : "none";
+  if (name === "mine") {
+    loadMine();
+  } else if (name === "review") {
+    // 切到鉴赏桌 tab 时, 如果还没显示卡, 自动抽一张 (优化体验, 不用每次手动点)
+    if (!currentCard) nextCard();
+  }
+}
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => showTab(t.dataset.tab)));
+
+// ===== sub-tab (全部/联动) =====
+document.querySelectorAll(".sub-tab").forEach(t => {
+  t.addEventListener("click", () => {
+    document.querySelectorAll(".sub-tab").forEach(x => x.classList.toggle("active", x === t));
+    currentMode = t.dataset.mode;
+  });
+});
+
+// ===== 卡牌展示 =====
+function renderCard(card) {
+  currentCard = card;
+  reactUsed.clear();
+  const stage = $("#cardStage");
+  if (!card || !card.image_base64) {
+    stage.innerHTML = '<div class="placeholder">点击"再来一张"获取 DIY 卡牌</div>';
+  } else {
+    stage.innerHTML = "";
+    const img = document.createElement("img");
+    img.src = card.image_base64;
+    img.alt = "DIY 卡牌";
+    // 鼠标移动 -> 跟随位置倾斜 (视觉优化: 让卡牌像实体卡一样能"看"一下)
+    img.addEventListener("mousemove", (e) => {
+      const rect = img.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width  - 0.5;  // -0.5 ~ 0.5
+      const y = (e.clientY - rect.top)  / rect.height - 0.5;
+      const maxAngle = 30;  // 倾斜角度上限 (用户要求更大, 再放大一点)
+      img.style.transform = `scale(1.10) rotateX(${(-y * maxAngle).toFixed(2)}deg) rotateY(${(x * maxAngle).toFixed(2)}deg)`;
+    });
+    img.addEventListener("mouseleave", () => {
+      img.style.transform = "";
+    });
+    stage.appendChild(img);
+  }
+
+  // 标题 (没有合适字段就空)
+  $("#infoTitle").textContent = "";
+
+  // 字段列表 - 后端返回什么就显示什么
+  const list = $("#infoList");
+  list.innerHTML = "";
+  const FIELDS = [
+    ["card_id",   "ID"],
+    ["author",    "作者"],
+    ["submitted_at", "发布时间"],
+    ["state",     "状态"]
+  ];
+  for (const [k, label] of FIELDS) {
+    if (card && card[k] != null && card[k] !== "") {
+      const row = document.createElement("div");
+      row.className = "info-row";
+      row.innerHTML = `<span class="k">— ${label}</span><span class="v">${escapeHtml(String(card[k]))}</span>`;
+      list.appendChild(row);
+    }
+  }
+
+  $("#cntLike").textContent = card && card.likes != null ? card.likes : 0;
+  $("#cntDislike").textContent = card && card.dislikes != null ? card.dislikes : 0;
+  $("#cntCandy").textContent = card && card.candies != null ? card.candies : 0;
+
+  const enabled = !!(card && card.card_id);
+  $("#btnLike").disabled = !enabled;
+  $("#btnDislike").disabled = !enabled;
+  $("#btnCandy").disabled = !enabled;
+
+  // 删除该卡按钮: 仅当当前卡为本人所拥有时显示
+  const btnDel = $("#btnDeleteThis");
+  if (btnDel) {
+    const myQq = String(KardsAccount.getDiyQQ() || "");
+    const owner = card && card.owner_qq != null ? String(card.owner_qq) : "";
+    const isMine = myQq && owner && myQq === owner;
+    btnDel.style.display = isMine ? "" : "none";
+    btnDel.disabled = !isMine;
+  }
+}
+
+// 从“我的投稿”左键点击进入：切到鉴赏桌 tab + 展示该卡
+let _openMyCardCtrl = null;
+async function openMyCard(cardId) {
+  if (!cardId) return;
+  if (_openMyCardCtrl) { try { _openMyCardCtrl.abort(); } catch (e) {} }
+  _openMyCardCtrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+  const signal = _openMyCardCtrl ? _openMyCardCtrl.signal : undefined;
+  showTab("review");
+  $("#cardStage").innerHTML = '<div class="placeholder">加载中...</div>';
+  try {
+    const resp = await apiGet("/diy/card/" + encodeURIComponent(String(cardId)), signal);
+    if (!resp || resp.code !== 0 || !resp.data) {
+      $("#cardStage").innerHTML = '<div class="error">' + (resp && resp.msg ? escapeHtml(resp.msg) : "后端无响应") + '</div>';
+      renderCard(null);
+      return;
+    }
+    renderCard(resp.data);
+  } catch (e) {
+    if (e && e.name === "AbortError") return;
+    $("#cardStage").innerHTML = '<div class="error">无法连接后端: ' + escapeHtml(e.message) + '</div>';
+    renderCard(null);
+  }
+}
+
+// 右键 -> 弹确认 -> 调 /diy/delete
+async function confirmDeleteMyCard(cardId) {
+  if (!cardId) return;
+  if (!window.confirm("是否删除该卡牌？该操作不可撤销")) return;
+  await doDeleteMyCard(cardId);
+}
+
+// 鉴赏桌右侧“删除该卡”按钮: 也走同一个确认 -> 删除流程
+async function doDeleteMyCard(cardId) {
+  if (!cardId) return;
+  if (!window.confirm("是否删除该卡牌？该操作不可撤销")) return;
+  const uid = KardsAccount.getDiyQQ();
+  if (!uid) { showToast("未绑定限定寻访 QQ", true); return; }
+  try {
+    const resp = await apiPost("/diy/delete", { uid: String(uid), card_id: cardId });
+    if (resp.code === 0) {
+      showToast(resp.msg || "已删除");
+      // 删成功: 立即使缓存失效, 下次 loadMine 会强制重拉
+      _invalidateMineCache(uid);
+      // 刷新“我的投稿”列表
+      loadMine(true);
+      // 如果当前鉴赏桌展示的是这张卡, 清空展示
+      if (currentCard && String(currentCard.card_id) === String(cardId)) {
+        $("#cardStage").innerHTML = '<div class="placeholder">该卡牌已删除</div>';
+        renderCard(null);
+      }
+    } else {
+      showToast(resp.msg || "删除失败", true);
+    }
+  } catch (e) {
+    showToast("网络错误: " + e.message, true);
+  }
+}
+$("#btnDeleteThis").addEventListener("click", () => {
+  if (currentCard && currentCard.card_id) doDeleteMyCard(currentCard.card_id);
+});
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+// 竞态保护: 每次点击取消上一次未完成的请求, 避免后回包覆盖先回包
+let nextCardCtrl = null;
+async function nextCard() {
+  if (nextCardCtrl) { try { nextCardCtrl.abort(); } catch (e) {} }
+  nextCardCtrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+  const signal = nextCardCtrl ? nextCardCtrl.signal : undefined;
+  $("#cardStage").innerHTML = '<div class="placeholder">加载中...</div>';
+  try {
+    const resp = await apiGet("/diy/" + currentMode, signal);
+    if (!resp || resp.code !== 0 || !resp.data) {
+      $("#cardStage").innerHTML = '<div class="error">' + (resp && resp.msg ? escapeHtml(resp.msg) : "后端无响应") + '</div>';
+      renderCard(null);
+      return;
+    }
+    renderCard(resp.data);
+  } catch (e) {
+    if (e && e.name === "AbortError") return;  // 被新一次点击取消, 静默
+    $("#cardStage").innerHTML = '<div class="error">无法连接后端: ' + escapeHtml(e.message) + '</div>';
+    renderCard(null);
+  }
+}
+$("#btnNext").addEventListener("click", nextCard);
+
+async function doReact(action) {
+  if (!currentCard || !currentCard.card_id) return;
+  if (reactUsed.has(action)) { showToast("已评价过该卡牌", true); return; }
+  const uid = KardsAccount.getDiyQQ();
+  if (!uid) { showToast("未绑定限定寻访 QQ", true); return; }
+  // 乐观更新
+  const map = { like: "cntLike", dislike: "cntDislike", candy: "cntCandy" };
+  const cnt = $("#" + map[action]);
+  const old = parseInt(cnt.textContent, 10) || 0;
+  cnt.textContent = old + 1;
+  reactUsed.add(action);
+  try {
+    const resp = await apiPost("/diy/react", { uid: String(uid), card_id: currentCard.card_id, action });
+    if (resp.code !== 0) {
+      cnt.textContent = old;
+      reactUsed.delete(action);
+      showToast(resp.msg || "评价失败", true);
+    } else {
+      showToast(resp.msg || "已评价");
+    }
+  } catch (e) {
+    cnt.textContent = old;
+    reactUsed.delete(action);
+    showToast("网络错误: " + e.message, true);
+  }
+}
+$("#btnLike").addEventListener("click", () => doReact("like"));
+$("#btnDislike").addEventListener("click", () => doReact("dislike"));
+$("#btnCandy").addEventListener("click", () => doReact("candy"));
+
+// ===== 我的投稿 =====
+// ===== 我的投稿 缓存 =====
+// 30 分钟内不重新请求后端 (实际变化频率低, 省一次序列查 + N 张图 base64 读盘)
+// 为了避免带权限不同的账号谈出问题, 缓存按 uid 分隔
+const MINE_CACHE_TTL_MS = 30 * 60 * 1000;
+const _mineCache = new Map();  // uid -> { ts, html, hasData }
+
+function _invalidateMineCache(uid) {
+  if (uid) _mineCache.delete(String(uid));
+  else _mineCache.clear();
+}
+
+function _renderMineCards(cards, wrap) {
+  if (cards.length === 0) { wrap.innerHTML = '<div class="empty">暂无投稿</div>'; return; }
+  const grid = document.createElement("div");
+  grid.className = "my-grid";
+  cards.forEach(c => {
+    const card = document.createElement("div");
+    card.className = "my-card";
+    card.dataset.cardId = c.card_id || "";
+    card.title = "左键查看 / 右键删除";
+    card.innerHTML = `
+      ${c.image_base64 ? `<img src="${c.image_base64}" alt="card">` : '<div style="aspect-ratio:2/3;background:#0a0a0c;display:flex;align-items:center;justify-content:center;color:#555">无图</div>'}
+      <div class="meta"><span>ID ${c.card_id || "-"}</span><span class="state">${escapeHtml(c.state || "未知")}</span></div>
+      <div class="counts"><span>👍 ${c.likes || 0}</span><span>👎 ${c.dislikes || 0}</span><span>🍬 ${c.candies || 0}</span></div>
+    `;
+    // 左键 → 切到鉴赏桌并展示该卡
+    card.addEventListener("click", () => openMyCard(c.card_id));
+    // 右键 → 弹确认, 确认后调 /diy/delete
+    card.addEventListener("contextmenu", (e) => { e.preventDefault(); confirmDeleteMyCard(c.card_id); });
+    grid.appendChild(card);
+  });
+  wrap.innerHTML = "";
+  wrap.appendChild(grid);
+}
+
+function _formatMineAge(ts) {
+  if (!ts) return "";
+  const age = Math.max(0, Date.now() - ts);
+  if (age < 60 * 1000) return "刚刚";
+  if (age < 60 * 60 * 1000) return Math.floor(age / 60000) + " 分钟前";
+  return Math.floor(age / 3600000) + " 小时前";
+}
+
+function _appendMineFooter(hasData) {
+  // 在列表下方加一行小记录: 什么时候过的 + 资源提示
+  const wrap = $("#myContent");
+  const cache = _mineCache.get(String(KardsAccount.getDiyQQ() || ""));
+  if (!cache || !hasData) return;
+  const foot = document.createElement("div");
+  foot.style.cssText = "color:#666;font-size:12px;padding:18px 0 4px;text-align:center";
+  foot.textContent = "最近加载: " + _formatMineAge(cache.ts) + " (30 分钟内不重请, 可点右上角“刷新”)";
+  wrap.appendChild(foot);
+}
+
+// in-flight 锁 + 缓存: 切 tab / 切回页面并发触发时, 已发未回的请求直接复用同一个 promise
+// force=true 时强制绕过缓存重拉 (用于刷新按钮)
+let _loadMineInflight = null;
+function loadMine(force) {
+  const wrap = $("#myContent");
+  const uid = KardsAccount.getDiyQQ();
+  if (!uid) { wrap.innerHTML = '<div class="empty">未绑定限定寻访 QQ</div>'; _invalidateMineCache(); return; }
+
+  // 缓存命中: 同 uid + 未过期 + 不强制 -> 直接复用
+  if (!force) {
+    const c = _mineCache.get(uid);
+    if (c && (Date.now() - c.ts) < MINE_CACHE_TTL_MS) {
+      if (c.hasData) {
+        wrap.innerHTML = c.html;
+        // 绑事件 (原来的 listener 随 innerHTML 别除了)
+        _bindMineCardsEvents();
+        _appendMineFooter(true);
+      } else {
+        wrap.innerHTML = '<div class="empty">暂无投稿</div>';
+        _appendMineFooter(false);
+      }
+      return;
+    }
+  }
+
+  if (_loadMineInflight) return _loadMineInflight;
+  _loadMineInflight = (async () => {
+    wrap.innerHTML = '<div class="empty">加载中...</div>';
+    try {
+      const resp = await apiPost("/diy/user_cards", { uid: String(uid) });
+      if (resp.code !== 0 || !resp.data) {
+        wrap.innerHTML = '<div class="empty">' + (resp.msg ? escapeHtml(resp.msg) : "加载失败") + '</div>';
+        _invalidateMineCache(uid);
+        return;
+      }
+      const cards = resp.data.cards || [];
+      if (cards.length === 0) {
+        wrap.innerHTML = '<div class="empty">暂无投稿</div>';
+        _mineCache.set(uid, { ts: Date.now(), html: "", hasData: false });
+        _appendMineFooter(false);
+        return;
+      }
+      // 先渲染, 再把最终 HTML 快照存进缓存 (不会丢事件, 因为事件是 _renderMineCards 里面动态绑的, 复用时重新 _bindMineCardsEvents)
+      const tmp = document.createElement("div");
+      _renderMineCards(cards, tmp);
+      wrap.innerHTML = "";
+      wrap.appendChild(tmp.firstElementChild || tmp);  // 把 my-grid 复制过来
+      _mineCache.set(uid, { ts: Date.now(), html: wrap.innerHTML, hasData: true });
+      _appendMineFooter(true);
+    } catch (e) {
+      wrap.innerHTML = '<div class="empty">网络错误: ' + escapeHtml(e.message) + '</div>';
+      _invalidateMineCache(uid);
+    } finally {
+      _loadMineInflight = null;
+    }
+  })();
+  return _loadMineInflight;
+}
+
+// 从缓存 HTML 里重新绑 .my-card 的事件 (innerHTML 会别除原先的 listener)
+function _bindMineCardsEvents() {
+  const uid = KardsAccount.getDiyQQ();
+  if (!uid) return;
+  // 需要从缓存拼出原始 cards 数据 → 简单走: 逐个 DOM 上取 cardId, 事件逻辑同上
+  document.querySelectorAll("#myContent .my-card").forEach(cardEl => {
+    const cid = cardEl.dataset.cardId;
+    if (!cid) return;
+    if (cardEl.dataset.bound === "1") return;  // 防重复绑
+    cardEl.dataset.bound = "1";
+    cardEl.addEventListener("click", () => openMyCard(cid));
+    cardEl.addEventListener("contextmenu", (e) => { e.preventDefault(); confirmDeleteMyCard(cid); });
+  });
+}
+
+// 刷新按钮: 强制绕过缓存重拉
+async function refreshMine() {
+  const btn = $("#btnRefreshMine");
+  if (btn) btn.disabled = true;
+  try {
+    await loadMine(true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+$("#btnRefreshMine").addEventListener("click", refreshMine);
+
+// ===== 顶栏 + 门控 =====
+async function initGate() {
+  await KardsAccount.ensureSeed();
+  const s = KardsAccount.loadSettings();
+  API_BASE = s.diyApiBase || KardsAccount.DEFAULT_DIY_API;
+  const cur = KardsAccount.getCurrentAccount();
+  $("#who").textContent = cur ? cur.email + (cur.isAdmin ? " (管理员)" : "") : "未登录";
+  $("#btnLogout").style.display = cur ? "" : "none";
+  document.querySelectorAll(".admin-only").forEach(n => n.style.display = (cur && cur.isAdmin) ? "" : "none");
+  $("#btnLogout").addEventListener("click", () => { KardsAccount.logout(); location.href = "account.html"; });
+
+  if (!cur) { $("#gateLogin").style.display = "flex"; return; }
+  if (!cur.diyQQ) { $("#gateBind").style.display = "flex"; return; }
+}
+$("#gateBindGo").addEventListener("click", () => { location.href = "account.html"; });
+
+// 页面重新可见时自动拉取
+async function refreshOnVisible() {
+  if (document.hidden) return;
+  const cur = KardsAccount.getCurrentAccount();
+  if (!cur || !cur.diyQQ) return;
+  const s = KardsAccount.loadSettings();
+  API_BASE = s.diyApiBase || KardsAccount.DEFAULT_DIY_API;
+  // 重新拉取当前 tab
+  const activeTab = document.querySelector(".tab.active");
+  if (activeTab && activeTab.dataset.tab === "mine") loadMine();
+  // review tab 仅在已有卡时刷新计数/详情, 避免无意义请求
+  if (activeTab && activeTab.dataset.tab === "review" && currentCard) {
+    // 不重置卡牌, 不主动刷; 用户可点"再来一张"
+  }
+}
+document.addEventListener("visibilitychange", refreshOnVisible);
+window.addEventListener("pageshow", refreshOnVisible);
+window.addEventListener("focus", refreshOnVisible);
+
+initGate();
+</script>
+</body>
+</html>
