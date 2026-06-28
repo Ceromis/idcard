@@ -520,10 +520,7 @@ async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
 @panel.handle()
 async def _(bot: Bot, event):
     uid = str(event.user_id)
-    # 使用 DB 中的昵称（若未设置则为 uid）
-    info = await bot.get_group_member_info(
-        user_id=event.user_id
-    )
+    # 使用 DB 中的昵称（若未设置则为 uid）；get_user_name 已改为从 DB 读, 不再调外部 API
     await ensure_user_row(uid, await get_user_name(bot, uid))
     now = time.time()
     async with aiosqlite.connect(DB) as db:

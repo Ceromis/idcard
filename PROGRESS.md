@@ -469,6 +469,95 @@ C:\开发\
 #### 需同步到服务器
 - 仅 diy.html 为前端, 本机生效. 后端未变, bot 无需重启
 
+### 投稿流 (2026-06-28)
+- `diy.html`: “我的投稿”列表末尾加一个“+”号占位卡. `_renderMineCards` 在 grid 末尾 appendChild 一个 `.my-card.my-card-add` (2px 虚线边框 + 大加号 + “投稿”标签), 点击 → `enterSubmitMode()`. 缓子中的事件重绑 (与 addCard 区分: dataset.add==1 时只绑 click 进入投稿, 不绑查看/删除)
+- `diy.html`: 鉴赏桌加提交模式. `enterSubmitMode()` → 身体加 `body.submit-mode` 类, CSS 隐藏 react-row/btnNext/btnDeleteThis, 显示 `#submitActions` (包含 匿名复选/取消/投稿 三个控件). 退出时 `_exitSubmitMode()` 移除类 + 如果 currentCard 空 → 抽一张
+- `diy.html`: 左侧空位 + 拖入. 提交模式下, `#cardStage` 内容变为 drop-hint (“+” + “拖入卡牌图片或点击选择”); cardStage 绑 dragover/drop/dragleave 事件, dragover 时加 `.drag-over` 高亮 (金色边框 + 透明背景). drop 上来后 → `_fileToDataUrl` 读为 data URL → `_renderSubmitPreview` 预览
+- `diy.html`: 点空位 / 预览图 → 也可点击重选 (隐藏 filePicker 被 click 触发). 限制 5MB (与后端 MAX_IMAGE_SIZE 一致), 超过提前报错不发请求. 选中后开启“投稿”按钮
+- `diy.html` CSS: 新增 .my-card-add (虚线边框 + aspect-ratio 2/3 + 大加号), .card-stage.drag-over (拖拽高亮), body.submit-mode 下隐藏/显示控件, .btn-submit / .btn-cancel (与原 btn-danger / btn-primary 一致风格), .anon-row (复选框 accent-color 与主题同色)
+- `diy.html`: 提交 → `POST /diy/submit {uid, image_base64, anonymous}`. 不带 data: 前缀 (后端 base64.b64decode 需纯 base64), `_stripDataUrlPrefix` 拆出. 成功 → showToast + `_exitSubmitMode` + `_invalidateMineCache(uid)` + `loadMine(true)` 刷新列表. 失败/网络错误 → 提示 + 重启“投稿”按钮
+- 修 `btnNext` 被多置 4 空格的丝缺 (replaced 上一轮)
+
+#### 验证
+- 后竫 mock 11/11 全过: 正常投稿 0 / 匿名投稿 DB anonymous=1 / 无 uid 401 / 无图 1 / 图过大 1 / 达今日 3 张上限 1 / 非图片 base64 1
+- diy.html 静态扫 39/41 (两个虚阶: HTML 里没有 my-card-add 字面量, 仅 JS 动态创建; JS 里“btnDoSubmit”最近发生在 HTML 上, 与函数调用 _exitSubmitMode 距离超过 500 字符 — 仅是正则区间设计问题, 代码本身正确)
+- diy.html 内嵌 <script> node --check 语法检查通过
+- 本机起 serve.py 抓 diy.html, 24/24 关键字符串命中
+
+#### 需同步到服务器
+- 仅 diy.html 为前端, 本机生效. 后端 /diy/submit 已有, bot 无需重启
+
+### 跳过的提案
+### 投稿模式 UI 裁剪 (2026-06-28)
+- `diy.html`: 投稿模式下隐藏鉴赏桌右栏上部的元信息 (sub-tabs 限定/联动寻访 + info-title + info-list 里的 ID/作者/发布时间). 上一轮只隐藏 react-row/btnNext/btnDeleteThis, 但右侧 sub-tabs/info-title/info-list 还在, 与投稿场景不吻合. 现在上半部空白, 右栏只剩 “匿名复选 / 取消 / 投稿” 三个控件
+- `diy.html` CSS: `body.submit-mode` 加三条隐藏规则 (.sub-tabs / .info-title / .info-list). 加一条 `.info-pane { justify-content: flex-end; padding-bottom: 8px }` 让 submitActions 紧贴右栏底部. 由于 submitActions 已有 margin-top:auto, 与 flex-end 双重底部对齐, 可靠
+
+#### 验证
+- diy.html 静态扫 5/5: 4 条 submit-mode 隐藏规则 + 1 条 info-pane 调整
+- 本机起 serve.py 抓 diy.html 4/4 关键 CSS 字符串命中
+- 模拟 DOM 状态: 投稿模式下右栏只显示 “匿名/取消/投稿” 三个控件, 其余全隐藏
+
+#### 需同步到服务器
+- 仅 diy.html 为前端, 本机生效. 后端未变, bot 无需重启
+
+### 跳过的提案
+### 修 panel 命令报错 (2026-06-28)
+- `nonebot_kards_recruit_plugin.py`: 移除 @panel.handle 里的死代码1 行. 原代码 `info = await bot.get_group_member_info(user_id=event.user_id)` 缺少必需参数 `group_id`, OneBot v11 适配器在 Pydantic 校验阶段抛 `ActionFailed: retcode=1400 must have required property 'group_id'`, 导致用户输入“个人面板”时 bot 整个 matcher 跳出 stacktrace. 实际上 `info` 赋值后从未被使用 (后续仅走 `await ensure_user_row(uid, await get_user_name(bot, uid))`, 后者已改为从 DB 读取, 不再调外部 API), 是遗留的老代码
+- 根因修复: 删除 3 行死代码, 顶部留上“使用 DB 中的昵称 (若未设置则为 uid); get_user_name 已改为从 DB 读, 不再调外部 API”备注. 不影响任何业务逻辑
+
+#### 验证
+- `ast.parse` 语法检查通过
+- 全文搜索 `get_group_member_info` 零引用 (panel 是唯一调用点)
+
+#### 需同步到服务器
+- 本轮修了 bot 端代码, 需要把 `nonebot_kards_recruit_plugin.py` 同步到服务器并重启 bot, 不然修复不生效
+
+### 跳过的提案
+### 搜索页 (2026-06-28)
+- 新增 `search.html`: 全页就一个公告卡片 (站大半屏, 720×自适应高度). 内容: “本网站不制作搜索功能, 请使用 1939.giaory.xyz 网站提供的网址功能” + “点击整段文字任意位置跳轮”提示. 不制作任何实际搜索功能, 仅为跳轮入口
+- “整段任意位置跳轮”的实现: 全部 4 个文字片段 (领说 / 链接 / 领说 / 提示) 都裹在 **同一个** `<a class="notice-card" id="searchJump" href="https://1939.giaory.xyz" target="_blank" rel="noopener noreferrer">` 里. 为了防中间被某个子节点提前关闭 (block-level a 在一些旧浏览器上会被误解), 所有内容都是 `<span>`, 块内无嵌套 `</a>`. 验证: 188 字节全部裹在 a 中
+- `search.html` CSS: 复用 diy.html 的侧栏 .side-nav / .slot 样式 (完全一致); .notice-card 居中 720×自适应宝石形 + 鲜明边框 + hover 变金 + 上移 + 阴影; .link 金色 + 下划线; .hint 小灰提示
+- `search.html` a11y: `<a>` 本身可焦点 (键盘 Enter 触发跳轮), 加了 tabindex=0 + role=link 作为能力不够的浏览器的兑现
+- `search.html` 安全: `target="_blank"` + `rel="noopener noreferrer"` (OneBot 社区常见漏洞, 不加 rel 会让 1939.giaory.xyz 反向 window.opener 控制打开者页面)
+- `diy.html`: 侧栏上以何“菜单 5”占位 div (style=font-size:12px) 换为 `<a class="slot" href="search.html" title="搜索">搜 索</a>`. 与上面 4 个 slot (deck/recruit/diy/settings) 一致的 .slot 风格, hover 金色亦适用. 原 admin-only settings 依然隐藏
+
+#### 验证
+- search.html 内嵌 <script> node --check 语法检查通过
+- search.html 静态扫 23/23: HTML 元素 / 文字例子 / 标题 / target / rel / 侧栏 / active 高亮 / CSS / JS
+- 结构验证: notice-card 块 188 字节全部裹在 <a>, 4 个 span (领说/链接/领说/提示) 都在块内, 块内无 `</a>`, href = https://1939.giaory.xyz, 任何位置点击均跳转
+- 本机起 serve.py 抓 search.html (200, 4040 bytes) + diy.html (200, 34669 bytes) 均成功; 11/11 关键字符串命中; diy.html 不再含“菜单 5”
+
+#### 需同步到服务器
+- 仅前端 search.html + diy.html, 本机生效. 后端未变, bot 无需重启
+
+### 跳过的提案
+### 侧栏菜单一致性 (2026-06-28)
+- `recruit.html`: 修正侧栏 slot 顺序 + 占位与其他页一致. 原顺序: 卡组 / 限定寻访 / 公开招募 / 管理 / 菜单3, 与 diy.html (search.html 刚加进 diy) 不一致 → 交换限定寻访/公开招募 位置, 菜单3 改为 search.html 链接“搜 索”
+- `deck.html`: 侧栏最后一个 `菜单 3` 占位 div 换为 `<a href="search.html">搜 索</a>` 链接. 与 diy/recruit 三页侧栏 slot 顺序完全一致
+- 3 页侧栏现在统一为: `deck.html (卡组) → recruit.html (公开招募) → diy.html (限定寻访) → settings.html (管理, admin-only 隐藏) → search.html (搜索)`. 顺序/链接/文案 全部一致
+
+#### 验证
+- 本机起 serve.py 抓 deck/diy/recruit 三页 side-nav 块, 提取 slot (href, 文案) 两两比较, 3/3 完全一致 (5 个 slot)
+- 4 个页面 (deck/diy/recruit/search) 都返回 200, 字节数正常
+
+#### 需同步到服务器
+- 仅前端 HTML, 本机生效. 后端未变, bot 无需重启
+
+### 跳过的提案
+### Gate 仅盖侧栏 (2026-06-28)
+- `recruit.html` + `diy.html`: 未登录 / 未绑定时的门控 overlay 从全屏遮罩 (`position: fixed; inset: 0; z-index: 150`) 改为仅盖住右侧 main 区域 (`position: fixed; top: 48px; left: 110px; right: 0; bottom: 0; z-index: 100; background: rgba(0, 0, 0, 0.45)`). 这样 topbar (48px) 与 side-nav (110px) 都不被遮, 用户可以点侧栏跳到其他页面 (卡组 / 搜索 等), 不被强制推到 account.html
+- `recruit.html` + `diy.html`: 两个 gate box (gateLogin / gateBind) 都加了 `继续浏览 (不登录)` / `继续浏览 (不绑定)` 链接. 点击后只隐藏当前 gate, 不跳转, 主体内容背后仍可见
+- 两个 dismiss 链接都用 `data-dismiss` 属性指向要隐藏的 gate id, 顶部全局代码 `document.querySelectorAll("[data-dismiss]").forEach` 一次性绑定事件. 添加新 gate 只需加 `data-dismiss="xxx"` 即可, 不需重复写事件绑定
+
+#### 验证
+- recruit.html + diy.html 静态扫 各 14/14, 合计 28/28: CSS 不再 inset:0 + top/left/right/bottom 准确 / dismiss 链接存在 + data-dismiss 属性上对应 / 文案“继续浏览 (不登录)”“继续浏览 (不绑定)” 同时出现 / JS 事件处理代码会取 data-dismiss 并调 display = none
+- 两页内嵌 <script> node --check 语法检查通过
+- 本机起 serve.py 抓 recruit.html (200, 19467 bytes) + diy.html (200, 35300 bytes) 都含全部关键元素
+
+#### 需同步到服务器
+- 仅前端 HTML + CSS, 本机生效. 后端未变, bot 无需重启
+
+### 跳过的提案
 ### 跳过的提案
 ## 13. 联系 & 维护
 

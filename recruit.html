@@ -185,8 +185,11 @@
   }
   .topbar .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
   .gate-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.88);
-    display: flex; align-items: center; justify-content: center; z-index: 150;
+    /* 仅盖住右侧 main 区域: 顶部 48px (topbar) + 左侧 110px (side-nav) 不被遮抩, 用户可点侧栏进入其他页 */
+    position: fixed; top: 48px; left: 110px; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
   }
   .gate-box {
     width: 420px; padding: 30px 36px;
@@ -215,10 +218,10 @@
 
 <div class="side-nav" id="sideNav">
   <a class="slot" href="deck.html" title="卡组">卡 组</a>
-  <a class="slot" href="diy.html" title="限定寻访">限定寻访</a>
   <a class="slot" href="recruit.html" title="公开招募">公开招募</a>
+  <a class="slot" href="diy.html" title="限定寻访">限定寻访</a>
   <a class="slot admin-only" href="settings.html" title="管理面板" style="display:none">管 理</a>
-  <div class="slot">菜单 3</div>
+  <a class="slot" href="search.html" title="搜索">搜 索</a>
 </div>
 
 <div class="topbar">
@@ -272,6 +275,7 @@
     <input class="input" id="gateLoginPwd" type="password" placeholder="密码" />
     <button id="btnGateLogin">登 录</button>
     <div class="meta">还没有账号? <a href="account.html">前往注册</a></div>
+    <div class="meta"><a href="javascript:void(0)" id="btnDismissLogin" data-dismiss="gateLogin">继续浏览 (不登录)</a></div>
   </div>
 </div>
 <div class="gate-overlay" id="gateBind" style="display:none">
@@ -281,6 +285,7 @@
     <input class="input" id="gateBindUid" type="text" placeholder="公开招募 UID (QQ号)" />
     <button id="btnGateBind">绑 定</button>
     <div class="meta">将打开账号页面完成绑定, <a href="account.html" id="gateBindGo">前往</a></div>
+    <div class="meta"><a href="javascript:void(0)" id="btnDismissBind" data-dismiss="gateBind">继续浏览 (不绑定)</a></div>
   </div>
 </div>
 
@@ -471,6 +476,14 @@ document.addEventListener("visibilitychange", refreshOnVisible);
 window.addEventListener("pageshow", refreshOnVisible);
 window.addEventListener("focus", refreshOnVisible);
 }
+// 继续浏览: 隐藏当前 gate, 用户可从侧栏进入其他页
+document.querySelectorAll("[data-dismiss]").forEach(el => {
+  el.addEventListener("click", () => {
+    const id = el.getAttribute("data-dismiss");
+    const g = document.getElementById(id);
+    if (g) g.style.display = "none";
+  });
+});
 document.getElementById("btnGateLogin").addEventListener("click", async () => {
   document.getElementById("gateLoginErr").textContent = "";
   try {

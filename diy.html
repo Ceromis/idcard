@@ -180,12 +180,60 @@
   .my-card .meta { color: #cfcfcf; font-size: 13px; display: flex; justify-content: space-between; }
   .my-card .state { color: var(--accent); }
   .my-card .counts { color: #888; font-size: 12px; display: flex; gap: 10px; }
+  /* + 号占位卡: 全屏虚线边框 + 大加号 + 半透明, hover 提亮 */
+  .my-card-add {
+    aspect-ratio: 2/3; min-height: 220px;
+    align-items: center; justify-content: center;
+    border: 2px dashed #555;
+    background: rgba(20, 22, 26, 0.4);
+    color: #888;
+    text-align: center;
+  }
+  .my-card-add:hover { border-color: var(--accent); color: var(--accent); background: rgba(214,162,106,.05); }
+  .my-card-add .add-icon { font-size: 56px; font-weight: 200; line-height: 1; }
+  .my-card-add .add-label { font-size: 13px; letter-spacing: 6px; margin-top: 8px; }
+
+  /* 鉴赏桌 提交模式: 空位 + 拖入提示 */
+  .card-stage.drag-over { border-color: var(--accent); background: rgba(214,162,106,.08); }
+  .card-stage .drop-hint {
+    color: #666; font-size: 14px; letter-spacing: 4px; text-align: center; padding: 0 20px;
+    pointer-events: none;
+  }
+  .card-stage .drop-hint .big { font-size: 48px; color: #555; line-height: 1; margin-bottom: 14px; }
+
+  /* 提交模式: 隐藏 react-row / btnNext / btnDeleteThis, 显示 匿名/投稿/取消 */
+  body.submit-mode .react-row,
+  body.submit-mode #btnNext,
+  body.submit-mode #btnDeleteThis,
+  body.submit-mode .sub-tabs,
+  body.submit-mode .info-title,
+  body.submit-mode .info-list { display: none !important; }
+  body.submit-mode #submitActions { display: flex !important; }
+  body.submit-mode .info-pane { justify-content: flex-end; padding-bottom: 8px; }
+  .submit-actions {
+    display: none;
+    flex-direction: column; gap: 12px;
+    margin-top: auto;
+  }
+  .submit-actions .row { display: flex; gap: 10px; align-items: center; }
+  .submit-actions .anon-row { font-size: 14px; color: #cfcfcf; padding: 6px 4px; }
+  .submit-actions .anon-row input { width: 16px; height: 16px; accent-color: var(--accent); margin-right: 8px; cursor: pointer; }
+  .submit-actions .btn-row { display: flex; gap: 12px; }
+  .submit-actions .btn-row button { flex: 1; height: 52px; }
+  .btn-submit { background: linear-gradient(#3a2e1a, #1a1410); color: #f0d6a0; border: 1px solid var(--accent); border-radius: 4px; font-size: 18px; letter-spacing: 8px; cursor: pointer; }
+  .btn-submit:hover:not(:disabled) { background: linear-gradient(#4a3a20, #2a1f15); }
+  .btn-submit:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-cancel { background: linear-gradient(#2c2c30, #1a1a1c); color: #e6e6e6; border: 1px solid #4a4a50; border-radius: 4px; font-size: 18px; letter-spacing: 8px; cursor: pointer; }
+  .btn-cancel:hover:not(:disabled) { background: linear-gradient(#3a3a3f, #1f1f22); }
   .empty { color: #888; font-size: 14px; text-align: center; padding: 60px 0; }
 
   /* 门控 overlay */
   .gate-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.88);
-    display: flex; align-items: center; justify-content: center; z-index: 150;
+    /* 仅盖住右侧 main 区域: 顶部 48px (topbar) + 左侧 110px (side-nav) 不被遮抩, 用户可点侧栏进入其他页 */
+    position: fixed; top: 48px; left: 110px; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
   }
   .gate-box {
     width: 420px; padding: 30px 36px;
@@ -215,7 +263,7 @@
   <a class="slot" href="recruit.html" title="公开招募">公开招募</a>
   <a class="slot" href="diy.html" title="限定寻访">限定寻访</a>
   <a class="slot admin-only" href="settings.html" title="管理面板" style="display:none">管 理</a>
-  <div class="slot" style="font-size:12px">菜单 5</div>
+  <a class="slot" href="search.html" title="搜索">搜 索</a>
 </div>
 
 <div class="topbar">
@@ -242,6 +290,7 @@
       <div class="card-stage" id="cardStage">
         <div class="placeholder">点击"再来一张"获取 DIY 卡牌</div>
       </div>
+      <input type="file" id="filePicker" accept="image/*" style="display:none">
       <div class="info-pane">
         <div class="sub-tabs">
           <div class="sub-tab active" data-mode="random">限定寻访</div>
@@ -265,7 +314,14 @@
             </button>
           </div>
           <button class="react-btn btn-danger" id="btnDeleteThis" style="display:none">🗑 删除该卡</button>
-                    <button class="btn-primary" id="btnNext">再 来 一 张</button>
+          <button class="btn-primary" id="btnNext">再 来 一 张</button>
+          <div class="submit-actions" id="submitActions">
+            <label class="row anon-row"><input type="checkbox" id="chkAnonymous">匿名投稿</label>
+            <div class="btn-row">
+              <button class="btn-cancel" id="btnCancelSubmit">取消</button>
+              <button class="btn-submit" id="btnDoSubmit" disabled>投稿</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -283,12 +339,14 @@
   <div class="gate-box">
     <h2>需先登录账号</h2>
     <div class="meta">还没有账号? <a href="account.html">前往注册</a></div>
+    <div class="meta"><a href="javascript:void(0)" id="btnDismissLogin" data-dismiss="gateLogin">继续浏览 (不登录)</a></div>
   </div>
 </div>
 <div class="gate-overlay" id="gateBind" style="display:none">
   <div class="gate-box">
     <h2>需先绑定限定寻访 QQ</h2>
     <div class="meta">将打开账号页面完成绑定, <a href="account.html" id="gateBindGo">前往</a></div>
+    <div class="meta"><a href="javascript:void(0)" id="btnDismissBind" data-dismiss="gateBind">继续浏览 (不绑定)</a></div>
   </div>
 </div>
 
@@ -481,6 +539,140 @@ function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
+// ===== 投稿模式 =====
+// 点“+”卡 → enterSubmitMode() → 身体加 body.submit-mode,
+// 鉴赏桌左侧 cardStage 变为空位 + drop-hint, 右侧 actions 变为 匿名复选 + 投稿/取消 两个按钮.
+// 用户拖图到 cardStage 上 / 或点击空位弹 filePicker 选图, 选完后 cardStage 预览该图.
+// 点投稿 → POST /diy/submit {uid, image_base64, anonymous}. 成功 → 退出投稿模式 + loadMine(true).
+
+let _submitImageDataUrl = null;  // 当前选中的图 (data URL, 含 data:image/...;base64,)
+
+function _enterSubmitModeRenderEmpty() {
+  document.body.classList.add("submit-mode");
+  $("#cardStage").innerHTML = '<div class="drop-hint"><div class="big">+</div>拖入卡牌图片或点击选择</div>';
+  _submitImageDataUrl = null;
+  const btn = $("#btnDoSubmit");
+  if (btn) btn.disabled = true;
+}
+
+function _renderSubmitPreview(dataUrl) {
+  $("#cardStage").innerHTML = "";
+  const img = document.createElement("img");
+  img.src = dataUrl;
+  img.alt = "预览";
+  img.style.maxWidth = "100%";
+  img.style.maxHeight = "100%";
+  img.style.objectFit = "contain";
+  img.style.borderRadius = "4px";
+  $("#cardStage").appendChild(img);
+  _submitImageDataUrl = dataUrl;
+  const btn = $("#btnDoSubmit");
+  if (btn) btn.disabled = false;
+}
+
+function enterSubmitMode() {
+  // 跳到鉴赏桌 tab + 进入投稿模式
+  showTab("review");
+  _enterSubmitModeRenderEmpty();
+}
+
+// 退出投稿模式: 清空选中, 隐藏提交按钮区, 恢复鉴赏桌默认
+function _exitSubmitMode() {
+  document.body.classList.remove("submit-mode");
+  _submitImageDataUrl = null;
+  // 如果这时没卡在展示, 抽一张
+  if (!currentCard) nextCard();
+}
+
+// 点空位 → 弹 filePicker
+$("#cardStage").addEventListener("click", (e) => {
+  if (!document.body.classList.contains("submit-mode")) return;
+  // 如果已选了图, 点击允许重选
+  $("#filePicker").click();
+});
+
+// 拖拽高亮 + 放下接受文件
+const _stage = $("#cardStage");
+_stage.addEventListener("dragover", (e) => {
+  if (!document.body.classList.contains("submit-mode")) return;
+  e.preventDefault();
+  _stage.classList.add("drag-over");
+});
+_stage.addEventListener("dragleave", (e) => {
+  if (!_stage.contains(e.relatedTarget)) _stage.classList.remove("drag-over");
+});
+_stage.addEventListener("drop", async (e) => {
+  if (!document.body.classList.contains("submit-mode")) return;
+  e.preventDefault();
+  _stage.classList.remove("drag-over");
+  const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) { showToast("请选择图片文件", true); return; }
+  // 限制 5MB (与后端 MAX_IMAGE_SIZE 一致, 超过提前报错)
+  if (file.size > 5 * 1024 * 1024) { showToast("图牌过大 (不超过 5MB)", true); return; }
+  const dataUrl = await _fileToDataUrl(file);
+  _renderSubmitPreview(dataUrl);
+});
+
+$("#filePicker").addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) { showToast("请选择图片文件", true); return; }
+  if (file.size > 5 * 1024 * 1024) { showToast("图牌过大 (不超过 5MB)", true); return; }
+  const dataUrl = await _fileToDataUrl(file);
+  _renderSubmitPreview(dataUrl);
+  e.target.value = "";  // 重置, 下次选同一个文件也能触发 change
+});
+
+function _fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(new Error("读取文件失败"));
+    r.readAsDataURL(file);
+  });
+}
+
+// 取出 base64 部分 (后端要求纯 base64, 不要 data: 前缀)
+function _stripDataUrlPrefix(dataUrl) {
+  const m = /^data:[^;]+;base64,(.*)$/.exec(dataUrl || "");
+  return m ? m[1] : dataUrl;
+}
+
+$("#btnCancelSubmit").addEventListener("click", () => {
+  _exitSubmitMode();
+  showToast("已取消");
+});
+
+$("#btnDoSubmit").addEventListener("click", async () => {
+  if (!_submitImageDataUrl) return;
+  const uid = KardsAccount.getDiyQQ();
+  if (!uid) { showToast("未绑定限定寻访 QQ", true); return; }
+  const anonymous = !!$("#chkAnonymous").checked;
+  const btn = $("#btnDoSubmit");
+  btn.disabled = true;
+  try {
+    const resp = await apiPost("/diy/submit", {
+      uid: String(uid),
+      image_base64: _stripDataUrlPrefix(_submitImageDataUrl),
+      anonymous: anonymous
+    });
+    if (resp.code === 0) {
+      showToast(resp.msg || "投稿成功, 待审核");
+      _exitSubmitMode();
+      // 刷新列表
+      _invalidateMineCache(uid);
+      loadMine(true);
+    } else {
+      showToast(resp.msg || "投稿失败", true);
+      btn.disabled = false;
+    }
+  } catch (e) {
+    showToast("网络错误: " + e.message, true);
+    btn.disabled = false;
+  }
+});
+
 // 竞态保护: 每次点击取消上一次未完成的请求, 避免后回包覆盖先回包
 let nextCardCtrl = null;
 async function nextCard() {
@@ -566,6 +758,14 @@ function _renderMineCards(cards, wrap) {
     card.addEventListener("contextmenu", (e) => { e.preventDefault(); confirmDeleteMyCard(c.card_id); });
     grid.appendChild(card);
   });
+  // 末尾加 + 号占位卡 (点击进入投稿模式)
+  const addCard = document.createElement("div");
+  addCard.className = "my-card my-card-add";
+  addCard.title = "点击进入投稿模式";
+  addCard.dataset.add = "1";
+  addCard.innerHTML = '<div class="add-icon">+</div><div class="add-label">投稿</div>';
+  addCard.addEventListener("click", () => enterSubmitMode());
+  grid.appendChild(addCard);
   wrap.innerHTML = "";
   wrap.appendChild(grid);
 }
@@ -652,12 +852,16 @@ function loadMine(force) {
 function _bindMineCardsEvents() {
   const uid = KardsAccount.getDiyQQ();
   if (!uid) return;
-  // 需要从缓存拼出原始 cards 数据 → 简单走: 逐个 DOM 上取 cardId, 事件逻辑同上
   document.querySelectorAll("#myContent .my-card").forEach(cardEl => {
-    const cid = cardEl.dataset.cardId;
-    if (!cid) return;
     if (cardEl.dataset.bound === "1") return;  // 防重复绑
     cardEl.dataset.bound = "1";
+    if (cardEl.dataset.add === "1") {
+      // + 号占位卡: 只能点击进入投稿模式, 不能查看 / 删除
+      cardEl.addEventListener("click", () => enterSubmitMode());
+      return;
+    }
+    const cid = cardEl.dataset.cardId;
+    if (!cid) return;
     cardEl.addEventListener("click", () => openMyCard(cid));
     cardEl.addEventListener("contextmenu", (e) => { e.preventDefault(); confirmDeleteMyCard(cid); });
   });
@@ -711,6 +915,14 @@ window.addEventListener("pageshow", refreshOnVisible);
 window.addEventListener("focus", refreshOnVisible);
 
 initGate();
+// 继续浏览: 隐藏当前 gate, 用户可从侧栏进入其他页
+document.querySelectorAll("[data-dismiss]").forEach(el => {
+  el.addEventListener("click", () => {
+    const id = el.getAttribute("data-dismiss");
+    const g = document.getElementById(id);
+    if (g) g.style.display = "none";
+  });
+});
 </script>
 </body>
 </html>

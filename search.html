@@ -1,0 +1,125 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>KARDS 搜索</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --panel-bg: rgba(20, 22, 26, 0.92);
+    --btn-border: #4a4a50;
+    --text: #e6e6e6;
+    --accent: #d6a26a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    color: var(--text);
+    background: #0c0c0e url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.9'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>");
+    min-height: 100vh;
+  }
+  .side-nav {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 110px;
+    background: rgba(15, 15, 18, 0.6);
+    border-right: 1px solid #1f1f22;
+    display: flex; flex-direction: column;
+    padding: 30px 10px; gap: 14px;
+  }
+  .side-nav .slot {
+    height: 90px;
+    border: 1px dashed #555;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    color: #777; font-size: 14px; letter-spacing: 4px;
+    text-decoration: none;
+    transition: all .15s;
+  }
+  .side-nav a.slot:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(214,162,106,0.06);
+  }
+  .side-nav a.slot.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(214,162,106,0.10);
+  }
+  .main {
+    margin-left: 110px; margin-top: 48px;
+    min-height: calc(100vh - 48px);
+    padding: 30px 40px;
+  }
+  /* 整段文字外层: 站大半屏, 居中, 整块可点 */
+  .notice {
+    display: flex; align-items: center; justify-content: center;
+    min-height: calc(100vh - 48px - 60px);
+  }
+  .notice-card {
+    display: block;
+    max-width: 720px;
+    width: 100%;
+    padding: 60px 70px;
+    background: var(--panel-bg);
+    border: 1px solid #3a3a40;
+    border-radius: 6px;
+    color: #e6e6e6;
+    font-size: 20px;
+    line-height: 2.0;
+    letter-spacing: 2px;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color .15s, transform .15s, box-shadow .15s, background .15s;
+  }
+  .notice-card:hover {
+    border-color: var(--accent);
+    background: rgba(214,162,106,0.06);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  }
+  .notice-card .lead { color: #cfcfcf; }
+  .notice-card .link { color: var(--accent); text-decoration: underline; }
+  .notice-card .hint { display: block; margin-top: 22px; font-size: 12px; color: #777; letter-spacing: 4px; }
+</style>
+</head>
+<body>
+
+<div class="side-nav" id="sideNav">
+  <a class="slot" href="deck.html" title="卡组">卡 组</a>
+  <a class="slot" href="recruit.html" title="公开招募">公开招募</a>
+  <a class="slot" href="diy.html" title="限定寻访">限定寻访</a>
+  <a class="slot admin-only" href="settings.html" title="管理面板" style="display:none">管 理</a>
+  <a class="slot active" href="search.html" title="搜索">搜 索</a>
+</div>
+
+<div class="main">
+  <div class="notice">
+    <!-- 整块都是 <a>, 任意位置点击都会跳转, 不依赖具体文字 hit-test -->
+    <a class="notice-card" id="searchJump" href="https://1939.giaory.xyz" target="_blank" rel="noopener noreferrer">
+      <span class="lead">本网站不制作搜索功能, 请使用</span>
+      <span class="link">1939.giaory.xyz</span>
+      <span class="lead">网站提供的网址功能</span>
+      <span class="hint">点击整段文字任意位置跳转</span>
+    </a>
+  </div>
+</div>
+
+<script>
+  // 兜底: 即便 <a> 整体被某些 CSS (pointer-events:none 等) 拦掉, 仍能用 JS 跳
+  // 同时, 防止 a href 被父级覆盖; 以及做一次 focus/blur 微调 (a11y)
+  (function () {
+    const a = document.getElementById("searchJump");
+    if (!a) return;
+    a.addEventListener("click", (e) => {
+      // 让 <a target="_blank"> 默认行为生效, 不做 preventDefault
+      // 这里仅作防御性 console (生产可删)
+      // console.log("[search] jump ->", a.href);
+    });
+    // 键盘: 焦点 + Enter / Space 同样触发 (a 默认行为已覆盖, 这里只是显式)
+    a.setAttribute("tabindex", "0");
+    a.setAttribute("role", "link");
+  })();
+</script>
+</body>
+</html>
