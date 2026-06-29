@@ -1,18 +1,23 @@
-﻿/**
+/**
  * 账号模块 (前端 localStorage 版)
- * - key "kards_accounts" : Array<{ email, pwdHash, uid?, isAdmin, createdAt }>
- * - key "kards_session"  : { email } 当前登录态
- * - key "kards_settings" : { apiBase } 全局 API 接入 IP 设置
+ * - key "kards_accounts" : Array<{ username, pwdHash, email?, uid?, diyQQ?, isAdmin, createdAt }>
+ *   - username: 必填, 唯一, 登录用
+ *   - email:    选填, 绑定的邮箱 (SMTP 验证后)
+ *   - uid:      公开招募 UID (= 实际 QQ 号)
+ *   - diyQQ:    限定寻访 QQ
+ * - key "kards_session"  : { username } 当前登录态
+ * - key "kards_settings" : { apiBase, diyApiBase } 全局 API 接入 IP 设置
+ * - key "kards_pending_email_code" : { email, code, ts, purpose }
  */
 (function (global) {
   const ACC_KEY = "kards_accounts";
   const SESS_KEY = "kards_session";
   const SET_KEY = "kards_settings";
+  const PENDING_CODE_KEY = "kards_pending_email_code";
   const DEFAULT_API = "http://110.42.63.235:8080";
   const DEFAULT_DIY_API = "http://192.168.10.100:8090";
 
-  // 纯 JS SHA-256 fallback: 当 crypto.subtle 不可用时使用
-  // 适用场景: 非 https / 非 localhost 访问, 浏览器不暴露 Web Crypto
+  // ===== SHA-256 =====
   function _sha256Pure(text) {
     const H = [0x6A09E667|0, 0xBB67AE85|0, 0x3C6EF372|0, 0xA54FF53A|0,
                0x510E527F|0, 0x9B05688C|0, 0x1F83D9AB|0, 0x5BE0CD19|0];
@@ -82,15 +87,12 @@
   }
 
   async function sha256(text) {
-    // 优先用 Web Crypto (快, async), 不可用时 (非 https / 非 localhost) 退回纯 JS fallback
     if (typeof crypto !== "undefined" && crypto.subtle && crypto.subtle.digest) {
       try {
         const buf = new TextEncoder().encode(text);
         const hash = await crypto.subtle.digest("SHA-256", buf);
         return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-      } catch (e) {
-        // 某些环境下 subtle.digest 抛错 (e.g. NotSupportedError), 继续走 fallback
-      }
+      } catch (e) {}
     }
     return _sha256Pure(text);
   }
@@ -107,87 +109,134 @@
       return s || { apiBase: DEFAULT_API, diyApiBase: DEFAULT_DIY_API };
     } catch { return { apiBase: DEFAULT_API, diyApiBase: DEFAULT_DIY_API }; }
   }
-  function saveSettings(s) { localStorage.setItem(SET_KEY, JSON.stringify(s)); }
-
-  function getSession() {
-    try { return JSON.parse(localStorage.getItem(SESS_KEY) || "null"); }
-    catch { return null; }
+  function saveSettings(s) {
+    const cur = loadSettings();
+    const next = Object.assign({}, cur, s || {});
+    localStorage.setItem(SET_KEY, JSON.stringify(next));
+    return next;
   }
+
   function setSession(s) {
     if (s) localStorage.setItem(SESS_KEY, JSON.stringify(s));
     else localStorage.removeItem(SESS_KEY);
   }
+  function getSession() {
+    try { return JSON.parse(localStorage.getItem(SESS_KEY) || "null"); }
+    catch { return null; }
+  }
 
-  // ===== 邮箱验证码 (占位) =====
-  // 真实接入时: 在后端用 163 SMTP (smtp.163.com:465 SSL, 授权码登录) 发邮件;
-  // 前端只调 /account/send_code 拿到成功/失败状态.
-  // 现阶段: 本地生成 6 位数字, console.log + 弹窗显示.
-  const PENDING_CODE_KEY = "kards_pending_code";
+  // ===== 校验码常量 =====
   const EMAIL_CODE_TTL_MS = 10 * 60 * 1000;  // 邮箱验证码 10 分钟过期
   const PASSWORD_MIN_LEN = 6;
-
-  // ===== 绑定验证码 (NoneBot 群内指令生成, 由后端 POST 到前端 /api/bind_code) =====
-  // 两个 key 互不干扰, 前端轮询 GET /api/bind_code 拉取最新码
-  const PENDING_KARDS_BIND_KEY = "kards_pending_bind_code";
-  const PENDING_DIY_BIND_KEY = "diy_pending_bind_code";
-  const BIND_CODE_TTL_MS = 10 * 60 * 1000;
+  const USERNAME_MIN_LEN = 3;
+  const USERNAME_MAX_LEN = 20;
+  const USERNAME_RE = /^[A-Za-z0-9_]{3,20}$/;
   const BIND_POLL_INTERVAL_MS = 2000;
-  const BIND_POLL_TIMEOUT_MS = 60000;
+  const BIND_POLL_TIMEOUT_MS = 600000; // 10 分钟, 与后端 BIND_CODE_TTL 一致
 
-  function generateCode() { return String(Math.floor(100000 + Math.random() * 900000)); }
-  async function sendCode(email) {
-    const normalized = String(email || "").trim().toLowerCase();
-    const code = generateCode();
-    localStorage.setItem(PENDING_CODE_KEY, JSON.stringify({ email: normalized, code, ts: Date.now() }));
-    console.log("[email-verify] code for", normalized, "=", code);
-    return code; // 真实接入后,这里只返回 true/false
+  function generateCode(len) {
+    len = len || 6;
+    let s = "";
+    for (let i = 0; i < len; i++) s += Math.floor(Math.random() * 10);
+    return s;
   }
-  function verifyCode(email, code) {
+  // 校验码: 3 位 + 2 位 + 1 位, 形如 "182*+", 包含字母+数字+符号
+  function generateVerifyToken() {
+    const digits = generateCode(3);          // 3 位数字
+    const mid = generateCode(2);             // 2 位数字
+    const sym = String.fromCharCode(33 + Math.floor(Math.random() * 15)); // 1 位符号
+    return digits + "*" + mid + sym;
+  }
+
+  // ===== 邮箱验证码 (选填) =====
+  // SMTP 真发送由 serve.py 在后端做, 前端只发请求, dev 模式(未配 SMTP)时由后端返回 devCode
+  async function sendCode(email, purpose) {
+    const normalized = String(email || "").trim().toLowerCase();
+    if (!normalized) throw new Error("邮箱不能为空");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) throw new Error("邮箱格式不正确");
+    const code = generateCode(6);
+    localStorage.setItem(PENDING_CODE_KEY, JSON.stringify({ email: normalized, code, ts: Date.now(), purpose: purpose || "bind" }));
+    // 同时通知后端, 让 serve.py 走 SMTP 发邮件; 后端不可达时本地存 dev code 也能让前端流程跑通
+    const base = _frontendBase();
+    let devCode = null;
+    if (base) {
+      try {
+        const resp = await fetch(base + "/api/email_code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: normalized, code, purpose: purpose || "bind" }),
+          cache: "no-store"
+        });
+        const data = await resp.json().catch(() => null);
+        if (data && data.code === 0) {
+          if (data.data && data.data.devCode) devCode = data.data.devCode;
+        } else {
+          // 后端失败: 走 dev fallback, 让验证码本地可见
+          devCode = code;
+        }
+      } catch (e) {
+        devCode = code;
+      }
+    } else {
+      devCode = code;
+    }
+    return { ok: true, devCode: devCode };
+  }
+  function verifyCode(email, code, purpose) {
     try {
       const p = JSON.parse(localStorage.getItem(PENDING_CODE_KEY) || "null");
-      if (!p || p.email !== email) return false;
+      if (!p) return false;
+      if (p.email !== String(email || "").trim().toLowerCase()) return false;
+      if (purpose && p.purpose && p.purpose !== purpose) return false;
       if (Date.now() - p.ts > EMAIL_CODE_TTL_MS) return false;
       return p.code === String(code).trim();
     } catch { return false; }
   }
 
   // ===== 账号 CRUD =====
-  async function register({ email, pwd, code }) {
-    email = String(email || "").trim().toLowerCase();
-    if (!email || !pwd) throw new Error("邮箱或密码不能为空");
-    if (!verifyCode(email, code)) throw new Error("验证码错误或已过期");
+  function _normalizeUsername(s) {
+    return String(s || "").trim();
+  }
+  async function register({ username, pwd }) {
+    username = _normalizeUsername(username);
+    if (!username) throw new Error("用户名不能为空");
+    if (!USERNAME_RE.test(username)) throw new Error("用户名仅支持 3-20 位字母/数字/下划线");
+    if (!pwd || String(pwd).length < PASSWORD_MIN_LEN) throw new Error("密码长度至少 " + PASSWORD_MIN_LEN + " 位");
     const list = loadAccounts();
-    if (list.some(a => a.email === email)) throw new Error("该邮箱已注册");
-    const acc = { email, pwdHash: await sha256(pwd), uid: "", isAdmin: false, createdAt: Date.now() };
+    if (list.some(a => a.username && a.username.toLowerCase() === username.toLowerCase())) {
+      throw new Error("该用户名已被注册");
+    }
+    const acc = { username, pwdHash: await sha256(pwd), email: "", uid: "", diyQQ: "", isAdmin: false, createdAt: Date.now() };
     list.push(acc);
     saveAccounts(list);
     return acc;
   }
-  async function login({ email, pwd }) {
-    email = String(email || "").trim().toLowerCase();
-    let acc = loadAccounts().find(a => String(a.email || "").toLowerCase() === email);
+  async function login({ id, pwd }) {
+    const key = String(id || "").trim();
+    if (!key || !pwd) throw new Error("请输入账号和密码");
+    let acc = loadAccounts().find(a => (a.username && a.username.toLowerCase() === key.toLowerCase()) || (a.email && a.email === key.toLowerCase()));
     if (!acc) {
-      // 防御: localStorage 可能在 init 之前就被清空/损坏, 触发一次 seed 再查一次
       await ensureSeed();
-      acc = loadAccounts().find(a => String(a.email || "").toLowerCase() === email);
+      acc = loadAccounts().find(a => (a.username && a.username.toLowerCase() === key.toLowerCase()) || (a.email && a.email === key.toLowerCase()));
     }
     if (!acc) throw new Error("账号不存在");
     if (acc.pwdHash !== await sha256(pwd)) throw new Error("密码错误");
-    setSession({ email: acc.email });
+    setSession({ username: acc.username });
     return acc;
   }
   function logout() { setSession(null); }
   function getCurrentAccount() {
     const s = getSession();
     if (!s) return null;
-    return loadAccounts().find(a => a.email === s.email) || null;
+    return loadAccounts().find(a => a.username === s.username) || null;
   }
   function bindUid(uid) {
     const cur = getCurrentAccount();
     if (!cur) throw new Error("请先登录");
     cur.uid = String(uid || "").trim();
+    if (!cur.uid) throw new Error("UID 不能为空");
     const list = loadAccounts();
-    const i = list.findIndex(a => a.email === cur.email);
+    const i = list.findIndex(a => a.username === cur.username);
     if (i >= 0) { list[i] = cur; saveAccounts(list); }
     return cur;
   }
@@ -195,8 +244,35 @@
     const cur = getCurrentAccount();
     if (!cur) throw new Error("请先登录");
     cur.diyQQ = String(qq || "").trim();
+    if (!cur.diyQQ) throw new Error("QQ 不能为空");
     const list = loadAccounts();
-    const i = list.findIndex(a => a.email === cur.email);
+    const i = list.findIndex(a => a.username === cur.username);
+    if (i >= 0) { list[i] = cur; saveAccounts(list); }
+    return cur;
+  }
+  function bindEmail(email, code) {
+    const cur = getCurrentAccount();
+    if (!cur) throw new Error("请先登录");
+    const normalized = String(email || "").trim().toLowerCase();
+    if (!normalized) throw new Error("邮箱不能为空");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) throw new Error("邮箱格式不正确");
+    if (!verifyCode(normalized, code, "bind")) throw new Error("验证码错误或已过期");
+    // 邮箱唯一性: 别的账号已用这个邮箱, 则不允许
+    const list = loadAccounts();
+    if (list.some(a => a.username !== cur.username && a.email === normalized)) {
+      throw new Error("该邮箱已被其他账号绑定");
+    }
+    cur.email = normalized;
+    const i = list.findIndex(a => a.username === cur.username);
+    if (i >= 0) { list[i] = cur; saveAccounts(list); }
+    return cur;
+  }
+  function unbindEmail() {
+    const cur = getCurrentAccount();
+    if (!cur) throw new Error("请先登录");
+    cur.email = "";
+    const list = loadAccounts();
+    const i = list.findIndex(a => a.username === cur.username);
     if (i >= 0) { list[i] = cur; saveAccounts(list); }
     return cur;
   }
@@ -204,93 +280,26 @@
     const cur = getCurrentAccount();
     return cur ? (cur.diyQQ || "") : null;
   }
-  // ===== 绑定验证码: 拉取/校验 =====
-  function _frontendBase() {
-    // 前端同源地址, 由 serve.py 提供 /api/bind_code
-    return (location.origin && location.origin !== "null") ? location.origin : "";
+  function unbindUid() {
+    const cur = getCurrentAccount();
+    if (!cur) throw new Error("请先登录");
+    if (!cur.uid) throw new Error("未绑定公开招募 UID, 无需解绑");
+    cur.uid = "";
+    const list = loadAccounts();
+    const i = list.findIndex(a => a.username === cur.username);
+    if (i >= 0) { list[i] = cur; saveAccounts(list); }
+    return cur;
   }
-  function _saveBindCode(key, qq, code, ts) {
-    try { localStorage.setItem(key, JSON.stringify({ qq: String(qq), code: String(code), ts: Number(ts) || Date.now() })); }
-    catch {}
+  function unbindDiyQQ() {
+    const cur = getCurrentAccount();
+    if (!cur) throw new Error("请先登录");
+    if (!cur.diyQQ) throw new Error("未绑定限定寻访 QQ, 无需解绑");
+    cur.diyQQ = "";
+    const list = loadAccounts();
+    const i = list.findIndex(a => a.username === cur.username);
+    if (i >= 0) { list[i] = cur; saveAccounts(list); }
+    return cur;
   }
-  function _loadBindCode(key) {
-    try { return JSON.parse(localStorage.getItem(key) || "null"); } catch { return null; }
-  }
-  function _clearBindCode(key) {
-    try { localStorage.removeItem(key); } catch {}
-  }
-  async function pollBindCode(purpose, qq, opts) {
-    const timeoutMs = (opts && opts.timeoutMs) || BIND_POLL_TIMEOUT_MS;
-    const onFound = (opts && opts.onFound) || function() {};
-    const onTick = (opts && opts.onTick) || function() {};
-    const onTimeout = (opts && opts.onTimeout) || function() {};
-    const base = _frontendBase();
-    if (!base) { onTimeout("无法连接前端服务"); return; }
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-      onTick();
-      try {
-        const resp = await fetch(base + "/api/bind_code?qq=" + encodeURIComponent(qq) + "&purpose=" + encodeURIComponent(purpose), { cache: "no-store" });
-        const data = await resp.json().catch(() => null);
-        if (data && data.code === 0 && data.data && data.data.code) {
-          const item = data.data;
-          _saveBindCode(
-            purpose === "kards_uid_bind" ? PENDING_KARDS_BIND_KEY : PENDING_DIY_BIND_KEY,
-            item.qq, item.code, item.ts
-          );
-          onFound(item);
-          return item;
-        }
-      } catch (e) {
-        // 忽略单次失败, 继续轮询
-      }
-      await new Promise(r => setTimeout(r, BIND_POLL_INTERVAL_MS));
-    }
-    onTimeout("超时未收到验证码, 请重试");
-    return null;
-  }
-  function verifyKardsCode(uid, code) {
-    if (!uid || !code) return false;
-    const p = _loadBindCode(PENDING_KARDS_BIND_KEY);
-    if (!p) return false;
-    if (String(p.code) !== String(code).trim()) return false;
-    if (String(p.qq) !== String(uid).trim()) return false;
-    if (Date.now() - Number(p.ts) > BIND_CODE_TTL_MS) { _clearBindCode(PENDING_KARDS_BIND_KEY); return false; }
-    _clearBindCode(PENDING_KARDS_BIND_KEY);
-    return true;
-  }
-  function verifyDiyCode(qq, code) {
-    if (!qq || !code) return false;
-    const p = _loadBindCode(PENDING_DIY_BIND_KEY);
-    if (!p) return false;
-    if (String(p.code) !== String(code).trim()) return false;
-    if (String(p.qq) !== String(qq).trim()) return false;
-    if (Date.now() - Number(p.ts) > BIND_CODE_TTL_MS) { _clearBindCode(PENDING_DIY_BIND_KEY); return false; }
-    _clearBindCode(PENDING_DIY_BIND_KEY);
-    return true;
-  }
-  // 远程校验: 当本地 localStorage 没有缓存 (前端从未轮询到码) 时, 让 serve.py 直接在内存里查
-  // 解决 "bot 与前端不在同一内网 / KARDS_FRONTEND_URL 没配对" 场景下手动填码的卡死
-  async function verifyBindCodeRemote(purpose, qq, code) {
-    const base = _frontendBase();
-    if (!base) return { ok: false, msg: "无法连接前端服务" };
-    try {
-      const resp = await fetch(base + "/api/bind_code/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ qq: String(qq), code: String(code), purpose }),
-        cache: "no-store"
-      });
-      const data = await resp.json().catch(() => null);
-      if (data && data.code === 0) return { ok: true };
-      return { ok: false, msg: (data && data.msg) ? data.msg : "验证码无效或已过期" };
-    } catch (e) {
-      return { ok: false, msg: "网络错误: " + (e && e.message || e) };
-    }
-  }
-  function getKardsPendingCode() { return _loadBindCode(PENDING_KARDS_BIND_KEY); }
-  function getDiyPendingCode() { return _loadBindCode(PENDING_DIY_BIND_KEY); }
-
   async function changePassword(oldPwd, newPwd) {
     const cur = getCurrentAccount();
     if (!cur) throw new Error("请先登录");
@@ -300,29 +309,114 @@
     if (cur.pwdHash !== await sha256(oldPwd)) throw new Error("原密码错误");
     cur.pwdHash = await sha256(newPwd);
     const list = loadAccounts();
-    const i = list.findIndex(a => a.email === cur.email);
+    const i = list.findIndex(a => a.username === cur.username);
     if (i >= 0) { list[i] = cur; saveAccounts(list); }
     return cur;
   }
   function listAll() { return loadAccounts(); }
-  function deleteAccount(email) {
-    const list = loadAccounts().filter(a => a.email !== email);
+  function deleteAccount(username) {
+    const list = loadAccounts().filter(a => a.username !== username);
     saveAccounts(list);
-    if (getSession() && getSession().email === email) setSession(null);
+    if (getSession() && getSession().username === username) setSession(null);
+  }
+
+  // ===== 校验指令 (bot 监听群消息, 回调 serve.py 完成绑定) =====
+  function _frontendBase() {
+    return (location.origin && location.origin !== "null") ? location.origin : "";
+  }
+  // 申请一个 token: 调 serve.py /api/verify_token 预留位置, 拿到后端占位
+  // serve.py 内部建一个 {token: {purpose, ts, qq:null}} 记录, 等 bot 回调
+  async function requestVerifyToken(purpose) {
+    const base = _frontendBase();
+    if (!base) return null;
+    try {
+      const resp = await fetch(base + "/api/verify_token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ purpose }),
+        cache: "no-store"
+      });
+      const data = await resp.json().catch(() => null);
+      if (data && data.code === 0 && data.data && data.data.token) return data.data.token;
+    } catch (e) {}
+    return null;
+  }
+  // 把生成的 token 通知 serve.py 预占
+  async function preallocVerifyToken(purpose, token) {
+    const base = _frontendBase();
+    if (!base) return false;
+    try {
+      const resp = await fetch(base + "/api/verify_token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ purpose, token }),
+        cache: "no-store"
+      });
+      const data = await resp.json().catch(() => null);
+      return !!(data && data.code === 0);
+    } catch (e) { return false; }
+  }
+  // 轮询: 等 bot 把 token 标记为已完成, 并把 qq 写回
+  async function pollVerifyToken(purpose, token, opts) {
+    const timeoutMs = (opts && opts.timeoutMs) || BIND_POLL_TIMEOUT_MS;
+    const onFound = (opts && opts.onFound) || function() {};
+    const onTimeout = (opts && opts.onTimeout) || function() {};
+    const base = _frontendBase();
+    if (!base) { onTimeout("无法连接前端服务"); return; }
+    // 先在后端预占这个 token
+    await preallocVerifyToken(purpose, token);
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      try {
+        const resp = await fetch(base + "/api/verify_token?token=" + encodeURIComponent(token) + "&purpose=" + encodeURIComponent(purpose), { cache: "no-store" });
+        const data = await resp.json().catch(() => null);
+        if (data && data.code === 0 && data.data && data.data.qq) {
+          onFound({ qq: data.data.qq, ts: data.data.ts });
+          return;
+        }
+      } catch (e) {}
+      await new Promise(r => setTimeout(r, BIND_POLL_INTERVAL_MS));
+    }
+    onTimeout("校验超时");
   }
 
   // ===== 初始化: 预置管理员 =====
-  // 用内存级 _seeded 标志位短路: 避免每次 init / login 自愈都跑 loadAccounts + sha256 + 写盘
   let _seeded = false;
+  // 迁移老结构 (2026-06-29 之前): 账号以 email 作为唯一 key, username 字段不存在
+  // 新结构: username 必填且唯一, email 降为可选绑定邮箱
+  // 这里做向后兼容: 把老账号的 email 字段拆为 username (取 @ 之前) + 真实 email 字段 (空字符串)
+  function _migrateAccounts(list) {
+    let dirty = false;
+    for (const a of list) {
+      if (!a || typeof a !== "object") continue;
+      if (a.username) continue; // 新结构, 跳过
+      if (a.email) {
+        const at = String(a.email).indexOf("@");
+        a.username = at > 0 ? String(a.email).slice(0, at) : String(a.email);
+        a.email = "";
+        dirty = true;
+      } else {
+        a.username = "user_" + (a.createdAt || Date.now());
+        dirty = true;
+      }
+      if (typeof a.diyQQ === "undefined") { a.diyQQ = ""; dirty = true; }
+      if (typeof a.uid === "undefined") { a.uid = ""; dirty = true; }
+    }
+    return dirty;
+  }
+
   async function ensureSeed() {
     if (_seeded) return;
     const list = loadAccounts();
-    let dirty = false;
-    if (!list.some(a => String(a.email || "").toLowerCase() === "admin@kards.local")) {
+    let dirty = _migrateAccounts(list);
+    // 兼容老默认管理员账号 admin@kards.local: 迁移后 username 会变成 "admin"
+    if (!list.some(a => a.username === "admin")) {
       list.push({
-        email: "admin@kards.local",
+        username: "admin",
         pwdHash: await sha256("admin123"),
+        email: "",
         uid: "",
+        diyQQ: "",
         isAdmin: true,
         createdAt: Date.now()
       });
@@ -334,12 +428,11 @@
   }
 
   global.KardsAccount = {
-    sha256, ensureSeed, sendCode, verifyCode,
-    register, login, logout, getCurrentAccount, bindUid, bindDiyQQ, getDiyQQ, changePassword,
+    sha256, ensureSeed, sendCode, verifyCode, generateVerifyToken,
+    register, login, logout, getCurrentAccount, bindUid, bindDiyQQ, bindEmail, unbindEmail, unbindUid, unbindDiyQQ, getDiyQQ, changePassword,
     listAll, deleteAccount,
     loadSettings, saveSettings,
-    pollBindCode, verifyKardsCode, verifyDiyCode, verifyBindCodeRemote, getKardsPendingCode, getDiyPendingCode,
+    requestVerifyToken, preallocVerifyToken, pollVerifyToken,
     DEFAULT_API, DEFAULT_DIY_API
   };
 })(window);
-

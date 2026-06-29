@@ -1,6 +1,6 @@
-﻿# KARDS 前端项目开发进度说明
+# KARDS 前端项目开发进度说明
 
-> 最后更新: 2026-06-28
+> 最后更新: 2026-06-29
 > 工作区: `C:\开发`
 
 ---
@@ -13,17 +13,13 @@
 | 公开招募核心流程 | ✅ 完成 (登录 → 拉词条 → 勾选 → 招 → 领) |
 | 卡组码解析 | ✅ 完成 (右侧渲染 + 下载) |
 | 限定寻访 (DIY) | ✅ 完成 (我要投稿 / 我的投稿) |
-| **验证码绑定 (新机制)** | ✅ **完成** (后端推 → 前端收 → 本地 verify) |
-| 邮箱验证码真实接入 | ⏳ 占位 (本地生成, 准备接 163 SMTP) |
-| 我的投稿投稿 UI | ⏳ 仅展示 (缺"上传图片"按钮) |
-| 高级管理面板 | ⏳ 基础完成 (API base 设置 / 改密) |
+| **注册登录重构 (新)** | ✅ **完成** (用户名+密码; 邮箱选填; SMTP 接口预留) |
+| **绑定机制重构 (新)** | ✅ **完成** (校验指令, bot 监听群消息自动绑定) |
+| 邮箱验证码 SMTP 真发 | ✅ 接口就绪 (`youxiang/youxiang.txt` 配 enabled=true 即生效) |
 | 跨设备账号同步 | ❌ 未做 (localStorage 单设备) |
-| 端到端测试 | ✅ 9 项 E2E + 3 项单元全过 |
+| 端到端测试 | ✅ 9 项 E2E + 3 项单元 + 校验指令 5 步全过 |
 
-**当前可立即跑通**: 启动 `serve.py` → 浏览器开 `account.html` → 用 `admin@kards.local` / `admin123` 登录 → 5 个页面全可访问, 但 `recruit.html` / `diy.html` 需要先绑定 UID/diyQQ, 绑定码需后端 bot 推送。
-
----
-
+**当前可立即跑通**: 启动 `serve.py` → 浏览器开 `account.html` → 用 `admin` / `admin123` 登录 → 5 个页面全可访问, 但 `recruit.html` / `diy.html` 需要先绑定 UID/diyQQ, 绑定走"获取校验码 + 群内发送指令"新流程。
 ## 1. 项目概览
 
 本项目是一个 **KARDS (二战卡牌游戏) 配套前端站点**, 由 5 个 HTML 页面 + 1 个 JS 模块 + 1 个本地静态服务器组成, 与两套 NoneBot 插件后端通信:
@@ -40,12 +36,14 @@
 
 ## 2. 已完成功能 ✅
 
-### 2.1 账号系统 (前端 localStorage)
-- 邮箱注册 + 密码登录 (`KardsAccount.register` / `login`)
-- 注册验证码 **占位实现** (本地生成 6 位码 + 弹窗显示, console 打印, 准备接 163 SMTP)
-- localStorage 预置管理员: `admin@kards.local` / `admin123`
+### 2.1 账号系统 (前端 localStorage, 2026-06-29 重构)
+- **账号模型**: `username` (3-20 位字母/数字/下划线, 唯一) + 可选 `email` + `pwdHash` + `uid` (公开招募 UID) + `diyQQ` (限定寻访 QQ)
+- **注册**: 仅 `username` + `pwd` (6+ 位), 不再卡邮箱验证码. 邮箱注册后到 邮 箱 tab 选填
+- **登录**: 用户名 或 已绑定邮箱 都可登录
+- **邮箱绑定 (可选)**: `bindEmail(email, code)` + `unbindEmail()`, 走 `sendCode` → 后端 SMTP (或 dev 模式弹窗)
+- **SMTP 配置**: 读 `youxiang/youxiang.txt` (JSON, `enabled=false` 时回 devCode, 真实部署改为 true + 填实际 SMTP 信息)
+- localStorage 预置管理员: `admin` / `admin123` (沿用旧密码)
 - `login` 自愈: 找不到账号时自动 `ensureSeed`, 防 localStorage 异常丢失管理员
-- 邮箱大小写自动归一 (修复 `Admin@Kards.Local` 注册失败的 bug)
 - 改密码 (`changePassword`)
 
 ### 2.2 公开招募 (kards)
@@ -73,44 +71,41 @@
 - `我的投稿` 调 `POST /diy/user_cards` 展示栅格缩略图
 - 门控: 未登录跳 `account.html`; 已登录未绑 diyQQ 弹"需先绑定"提示
 
-### 2.5 验证码绑定机制 (核心新功能) ✅
-**架构** (与"传统 API"相反, 改为**后端推送 → 前端接收**):
+### 2.5 校验指令绑定机制 (核心新功能, 2026-06-29 重构) ✅
+**架构** (前端 + 后端 + bot 三方协调, 取代旧的 6 位码机制):
 
 ```
-┌────────────────┐   群内发"kards验证码"   ┌────────────────────┐
-│  QQ 用户       │ ──────────────────────▶ │ NoneBot kards 插件 │
-└────────────────┘                         └────────┬───────────┘
-                                                   │ 生成 6 位码
-                                                   │ 群内回码
-                                                   │ aiohttp POST
-                                                   ▼
-                                        ┌────────────────────────┐
-                                        │ serve.py :8000         │
-                                        │ POST /api/bind_code    │
-                                        │ 存到 data/bind_codes   │
-                                        │       .json            │
-                                        └────────┬───────────────┘
-                                                 │ 前端 pollBindCode
-                                                 │ GET /api/bind_code
-                                                 ▼
-┌────────────────┐                         ┌────────────────────────┐
-│ account.html   │ ◀── 自动填充 + 校验 ─── │ 浏览器                  │
-│ 验证并绑定按钮 │                         │ (account.js)            │
-└────────────────┘                         └────────────────────────┘
+┌────────────────┐  点 "获取校验码"   ┌──────────────────┐
+│  浏览器        │ ────────────────▶ │  serve.py        │
+│                │  POST /verify_token│  (frontend:8000)│
+│  生成 token    │  + 拿到 token      │  存 verify_tokens│
+│  弹出指令       │  轮询 /verify_token│  .json (10min)  │
+│  "校验kards账号182*+"              └────────┬─────────┘
+│  "点我复制指令"                            │ 等回调
+│                                            ▼
+│  ┌──────────────────────────┐  群内发指令  ┌──────────────────┐
+│  │  QQ 群                  │ ──────────▶  │ NoneBot 插件     │
+│  │                         │  bot 监听    │ on_message()     │
+│  │  用户在群内粘贴发送      │  正则匹配    │ /verify_token/   │
+│  │  "校验kards账号182*+"   │  提取 token  │ complete         │
+│  └──────────────────────────┘  + QQ       │ qq = event.user_id│
+│                                            └────────┬─────────┘
+│                                                     │
+│  ◀───  轮询拿到 qq  ◀────────────────────────────────┘
+│  bindUid(qq) 自动绑定
 ```
 
-**关键设计决定**:
-- 后端**不**提供 `/verify_bind_code` 端点; 只生成 + 推
-- 前端 verify 全在浏览器: 校验 `qq === 表单输入的 UID` + 10 分钟过期, 通过即清 localStorage key
-- 群内命令: `kards验证码` (绑公开招募 UID) / `diy验证码` (绑限定寻访 QQ)
-- 跨 purpose / 跨 qq / 乱序 ts 三重隔离 (已端到端测试 9 项全过)
+**关键变化**:
+- 不再让用户输入自己的 UID/QQ, 而是由 bot 监听群消息时自动拿到 event.user_id (发送者 QQ)
+- 校验码格式: 3位数字 + * + 2位数字 + 1位符号, 形如 `182*+` `203*70!` `456*12@`
+- 6 位数字码旧机制 (`kards验证码` / `diy验证码` 命令) **已于 2026-06-29 废弃**, 旧文件残留的 `get_kards_bind_code` / `get_diy_bind_code` 命令已删除; 新流程只走校验指令, 指令前缀统一为 `校验kards账号`
+- 全程 10 分钟 (BIND_CODE_TTL) 过期, 前端轮询 2 秒一次, 10 分钟超时后让用户重新获取
 
-**前端 UI** (`account.html` 绑定 tab):
-1. 用户填 UID / diyQQ
-2. 点 `获取验证码` → 按钮 60s 倒计时 + 提示"请到群内发送 kards验证码"
-3. JS 每 2s 轮询 `GET /api/bind_code?qq=<uid>&purpose=kards_uid_bind`
-4. 拿到码自动填到 `验证码` 输入框, 停止轮询
-5. 用户点 `验证并绑定` → 本地 verify → 调 `KardsAccount.bindUid(uid)` 写 localStorage
+**前后端 API 衔接** (详见 4.3 节):
+- 前端 `KardsAccount.preallocVerifyToken(purpose, token)` → `POST /api/verify_token` 预占
+- 前端 `KardsAccount.pollVerifyToken(purpose, token)` → 轮询 `GET /api/verify_token?token=&purpose=`
+- bot `on_message` 匹配 `^校验kards账号(.+)$` (统一前缀, UID/QQ 绑定都走这个) → `POST /api/verify_token/complete` 回写 qq
+- 校验指令过期/被 GC 后, 前端再 GET 时拿到 `code:1 token 无效或已过期`
 
 ---
 
@@ -186,12 +181,28 @@
 
 | 方法 | 路径 | 请求 | 响应 | 用途 |
 |---|---|---|---|---|
-| POST | `/api/bind_code` | `{qq, code, purpose, ts}` | `{code: 0, msg: "ok"}` | **接收 NoneBot 插件推送的验证码** |
-| GET | `/api/bind_code?qq=&purpose=` | — | `{code: 0, data: {qq, code, purpose, ts}}` 或 `{code: 1, msg: "暂无新验证码"}` | **前端轮询拉取** |
+| POST | `/api/bind_code` | `{qq, code, purpose, ts}` | `{code: 0, msg: "ok"}` | **旧: 接收 bot 推送的 6 位码 (兼容保留)** |
+| GET | `/api/bind_code?qq=&purpose=` | — | `{code: 0, data: {qq, code, purpose, ts}}` | **旧: 前端轮询拉码 (兼容保留)** |
+| POST | `/api/bind_code/verify` | `{qq, code, purpose}` | `{code: 0, msg: "ok"}` | **旧: 手动填码路径校验 (兼容保留)** |
+| **POST** | **`/api/email_code`** | `{email, code, purpose}` | `{code: 0, data: {sent: true}}` 或 `{code: 0, data: {devCode: "..."}}` | **新: 邮箱验证码, SMTP 启用时真发, 否则 dev 模式回 devCode** |
+| **POST** | **`/api/verify_token`** | `{purpose, token?}` | `{code: 0, data: {token: "..."}}` | **新: 前端预占校验码 (带 token) 或让后端生成** |
+| **GET** | **`/api/verify_token?token=&purpose=`** | — | `{code: 0, data: {qq, ts}}` 或 `{code: 1, msg: "等待 bot 回调"}` | **新: 前端轮询, 拿 bot 写入的 qq** |
+| **POST** | **`/api/verify_token/complete`** | `{token, purpose, qq}` | `{code: 0, msg: "ok"}` | **新: bot 监听群消息后调, 回写 qq** |
 | GET | `/<file>.{html,js,png,css}` | — | 静态文件 | 5 个页面托管 |
 
-**purpose 白名单**: `kards_uid_bind` / `diy_qq_bind`  
-**存储**: `data/bind_codes.json` (按 `qq|purpose` 去重, 旧 ts 不覆盖新码, 1 小时 GC)  
+**purpose 白名单**:
+- 旧: `kards_uid_bind` / `diy_qq_bind`
+- 新: `kards_token_bind` / `diy_token_bind`
+
+**存储**:
+- `data/bind_codes.json` (旧, 按 `qq|purpose`, 1 小时 GC)
+- `data/verify_tokens.json` (新, 按 `token|purpose`, 10 分钟 GC)
+
+**SMTP 配置**: `youxiang/youxiang.txt` (JSON)
+- `enabled=false` (默认, dev 模式, 验证码弹窗显示)
+- `enabled=true` + 填真实 host/port/user/password/from 后, 走真实 SMTP
+- 占位符字面量 `滚木` 表示未配置, serve.py 启动时识别为未启用
+
 **CORS**: `Access-Control-Allow-Origin: *` (允许多端跨域)
 
 ---
@@ -558,6 +569,128 @@ C:\开发\
 - 仅前端 HTML + CSS, 本机生效. 后端未变, bot 无需重启
 
 ### 跳过的提案
+### 跳过的提案
+
+### 注册登录与绑定重构 (2026-06-29)
+- **account.html** 重写: 4 个 tab — 登录 / 注册 / 绑定 / 邮箱
+  - 登录: 账号输入框 (用户名 / 已绑定邮箱均可), 密码
+  - 注册: 仅 用户名 + 密码 + 确认密码 (邮箱完全选填, 不再卡注册流程)
+  - 绑定 (新流程): 不再让用户输入 UID / QQ, 改为"获取校验码" → 出现 `校验kards账号182*+` (或 `校验diy账号...`) + "点我复制指令" 按钮, 提示 "请在 600 秒内在群聊内发送 [指令]". 群内发送后 bot 监听, 回写 qq 到前端, 自动绑定
+  - 邮箱 (新 tab): 选填绑定, 发送验证码 + 填码 + 解绑
+- **account.js** 重写: 账号模型由 `email` 改为 `username` (唯一), `email` 降为可选
+  - `register({username, pwd})` 校验 3-20 位字母/数字/下划线, 6+ 位密码
+  - `login({id, pwd})` 同时支持 username / email
+  - 新增 `bindEmail` / `unbindEmail`
+  - `sendCode(email, purpose)` 调后端 `POST /api/email_code`, dev 模式返回 devCode, SMTP 启用后真发邮件
+  - 新增 `generateVerifyToken()` (3位*2位1位符号) + `preallocVerifyToken` / `pollVerifyToken`
+  - 移除旧的 `pollBindCode` / `verifyKardsCode` / `verifyDiyCode` (已替换为 verify_token 流程)
+- **serve.py** 重写: 新增 4 个端点
+  - `POST /api/email_code`: 读 `youxiang/youxiang.txt`, `enabled=true` 时走真实 SMTP (smtplib), 否则回 devCode
+  - `POST /api/verify_token`: 前端预占 token (或后端生成), 存 `data/verify_tokens.json`
+  - `GET  /api/verify_token?token=&purpose=`: 前端轮询, 拿 qq
+  - `POST /api/verify_token/complete`: bot 监听群消息后调, 标记 token 已绑定
+  - 旧的 `/api/bind_code` 系列保留, 兼容旧版 bot
+- **nonebot_kards_recruit_plugin.py** + **xunfang.py**: 末尾追加 `on_message(priority=200)` 监听
+  - 匹配 `^校验kards账号(.+)$` / `^校验diy账号(.+)$`, 提取 token + 当前 event.user_id (即 QQ)
+  - 调 `serve.py /api/verify_token/complete` 标记完成, 前端轮询拿到 qq 即自动绑定
+- **youxiang/youxiang.txt**: 新建 SMTP 配置模板 (JSON), `enabled=false`, 所有占位值均为字面量 "滚木" (per 需求)
+- 端到端测试通过: 预占 token → 轮询"等待回调" → bot complete → 轮询拿到 qq → 邮箱 dev 模式回 devCode
+
+### 指令统一 + 静默 (2026-06-29)
+- **废弃**: 移除 `nonebot_kards_recruit_plugin.py` 中 `kards验证码` 命令 (含 `get_kards_bind_code` 函数体) 与 `xunfang.py` 中 `diy验证码` 命令
+- **统一前缀**: 不论绑公开招募 UID 还是限定寻访 QQ, 群内统一发送 `校验kards账号{token}` (例: `校验kards账号182*+` `校验kards账号456*12@`)
+- **后端区分**: 同一个指令前缀在两个 bot 中都匹配, 但 xunfang 监听到后调 `/verify_token/complete` 时 `purpose=diy_token_bind`, kards 监听到后 `purpose=kards_token_bind`. 靠 `purpose` 区分
+- **静默**: 两个 bot 的 verify listener 全部移除 `verify_cmd.finish()` 调用. 校验码错误 / 不匹配 / 后端报错 / 成功 4 种情况, bot 都不在群里回复任何消息. 前端通过轮询 `/api/verify_token?token=&purpose=` 拿到 qq 后自动调用 `bindUid` / `bindDiyQQ` 完成绑定
+- **HTML 同步**: `account.html` `_formatCmd()` 把 `diy_token_bind` 也返回 `校验kards账号{token}`; 初始提示文案明确"与公开招募统一前缀 校验kards账号"
+- **端到端验证**: kards/diy 两条 token 路径都能完成 `prealloc → bot complete → poll 拿 qq`; 错误 token complete 收到 `code:1 token 无效或已过期` (前端轮询不会拿到 qq, 显示"校验超时, 请重新获取")
+
+
+### 绑定页面统一入口 (2026-06-29)
+- 校验码统一后, 绑定页面的"获取校验码"按钮也合并为一个
+- 旧结构: 两个独立区块 (公开招募 UID / 限定寻访 QQ), 各一个按钮, 各自一份指令/复制框/提示
+- 新结构: 单一下拉框 <select id="bindPurpose"> (选项 kards_token_bind / diy_token_bind) + 单按钮 #btnGetBindCode
+- 旧 id 全部废弃并清除: btnGetBindCodeKards / btnGetBindCodeDiy / verifyKardsCmd / verifyDiyCmd / btnCopyKards / btnCopyDiy / verifyBoxKards / verifyBoxDiy / getCodeKardsHint / getCodeDiyHint / _setKardsCooldown / bindDiyErr / bindDiyOk
+- 新 id: bindPurpose / btnGetBindCode / verifyBox / verifyCmd / btnCopy / getCodeHint
+- 智能默认: 进入绑定面板时 _autoSelectBindPurpose() 根据当前账号未绑项自动选默认值 (uid 未绑选 kards_token_bind, 否则 diy_token_bind); 绑定成功后自动切到下一个未绑用途
+- 切换用途时清空旧指令显示, 避免上一个 token 残留造成混淆
+- 端到端验证: UID 绑定 (kards_token_bind) 与 QQ 绑定 (diy_token_bind) 两条路径都能完成 prealloc → bot complete → 前端轮询拿 qq, verify_tokens.json 落盘正确
+
+
+### 绑定一次按钮同时绑两项 (2026-06-29)
+- 用户最终流程: 进入绑定页 → 默认勾选两项 (公开招募 UID + 限定寻访 QQ) → 点一次"获取校验码" → 看到两条指令卡片 → 在群内分别发送 → 两个绑定自动完成
+- UI: 复选框 (chkKards / chkDiy) 取代下拉框, 默认全勾; verifyList 容器动态渲染多张 verify-card, 每张含独立 input + 点我复制指令 + status 行
+- JS 流程: _doGetVerify → 读 _readCheckedPurposes() → 每个 purpose 独立 generateVerifyToken → 独立 _renderVerifyCard → 独立 pollVerifyToken → onFound 时根据 BIND_PURPOSE_META[purpose].bindFn 自动调用 KardsAccount.bindUid 或 bindDiyQQ
+- 切换勾选时清空 verifyList, 避免旧 token 残留
+- 失败/超时/不匹配: bot 静默 (上一轮已实现), 前端 onTimeout 把卡片 status 标红, 用户点"获取校验码"重新生成
+- 旧符号全部清除: _autoSelectBindPurpose / _wireCopy / verifyCmd / btnCopy / bindPurpose / _setKardsCooldown / btnGetBindCodeKards 等
+- 端到端验证: 一次按钮生成两个 token, 两个 token 独立 prealloc → bot complete → 前端 poll 都拿到 qq, verify_tokens.json 双条目同时落盘
+
+
+### 修复 admin 登录提示账号不存在 (2026-06-30)
+- **问题**: 用户浏览器里 localStorage 还残留旧结构 (2026-06-29 之前的), 账号以 `email` 字段作为唯一 key, 没有 `username` 字段 (例: `{email: "admin@kards.local", pwdHash: ...}`). 我把账号模型从 email-based 改为 username-based 后, login 找的是 `a.username === "admin"`, 老数据没这个字段 → 找不到 → 报 "账号不存在"
+- **根本原因**: `ensureSeed` 检查 `!list.some(a => a.username === "admin")` 时, 老账号 `a.username === undefined` 也满足 "不等于 admin", 所以会**重复插入**新 admin 账号, 但 passwordHash 又是新的, 不影响 admin123 登录 -- 问题不在密码, 而在 login 查不到旧 admin 账号
+- **修复**: account.js 新增 `_migrateAccounts(list)` 函数, ensureSeed 先迁移再判断:
+  - 老账号 (无 username 字段) → 取 email 的 @ 之前作为 username, 真实 email 字段清空
+  - 同时补全 `uid` / `diyQQ` 默认值
+  - 迁移后再检查 `username === "admin"`, 已存在则不重复插入
+- **验证** (Node 模拟 localStorage):
+  - 场景 1: 旧 localStorage 残留 admin@kards.local + alice@example.com → 迁移后 username=admin / alice, 用 admin/admin123 登录成功
+  - 场景 2: 空 localStorage → seed 插入 admin, 登录成功
+  - 场景 3: 迁移后再 seed, 不会重复插入
+- **副作用**: 迁移后老账号的 email 字段被清空, 不能再用旧邮箱登录, 必须用 username 登录. 这是有意的 (避免老数据里误把 email 当 username)
+
+
+### 修复 xunfang 加载 NameError (2026-06-30)
+- **症状**: NoneBot 启动时 `Failed to import "xunfang"`, traceback 指向 `xunfang.py:1211 NameError: name 's' is not defined`. kards 插件 `1920` 行也有同样问题 (但报错前 bot 还在 import xunfang, 所以只看到 xunfang 的报错)
+- **根因**: 上一轮我用 "文件做中转" 的 Powershell 模式做 Python 替换时, 在 Powershell 变量里多写了一个孤立的 's' 字符, 跟其他内容一起被拼接到 .py 文件末尾. AST 能解析 (因为 's' 是合法 identifier), 但 Python 加载模块时会按语句顺序求值, 看到裸 `s` 就 NameError
+- **修复**: 删除两个 bot 文件末尾孤立的 's' 字符
+  - `nonebot_kards_recruit_plugin.py`: size 68957 -> 68957 (去掉末尾 's')
+  - `xunfang.py`: size 46550 -> 46549 (去掉末尾 's')
+- **验证**: AST 解析全过, 起 serve.py 跑 kards/diy 两条 token 路径 (prealloc -> bot complete -> 前端 poll) 完整通过
+- **避免**: 后续用 here-string + 变量拼接做代码替换时, 一定要 echo / cat 确认下文件末尾, 不能假设 patch 干净
+
+
+### 改用 NoneBot pydantic Config 配置 (2026-06-30)
+- **背景**: 之前 KARDS_FRONTEND_URL 走 os.environ.get, NoneBot 启动时不读 .env, 用户用 .env 配置需要 dotenv 启动方式. 改用 NoneBot 4.x 标准的 pydantic Config (参考其他插件 nonebot_plugin_bottle 的写法)
+- **改动**:
+  - `xunfang.py` + `nonebot_kards_recruit_plugin.py` 各加一个 Config 类:
+    - imports: `from nonebot import ..., get_plugin_config` + `from pydantic import BaseModel, ConfigDict`
+    - `class Config(BaseModel): model_config = ConfigDict(extra="ignore"); kards_frontend_url: str = "http://192.168.10.121:8000"`
+    - `config: Config = get_plugin_config(Config)`
+  - FRONTEND_PUSH_URL 初始化改为: `_KARDS_FRONTEND_BASE = (os.environ.get("KARDS_FRONTEND_URL") or config.kards_frontend_url).rstrip("/")`. 优先 env (向后兼容), 退到 config.kards_frontend_url
+  - 启动诊断简化: 不再扫描 .env / dotenv 路径, 只在 env + config 都为空时 WARN
+- **用法** (NoneBot .env.prod 等):
+  ```
+  kards_frontend_url=http://192.168.10.121:8000
+  ```
+- **优势**:
+  - NoneBot 原生识别 (无需 dotenv 启动)
+  - pydantic 类型校验, IP/URL 错时启动直接报错
+  - 配置项集中, 后续加更多配置 (SMTP 之类) 直接扩 Config 类
+- **验证**: AST 解析两个 bot 都 OK, serve.py 端到端测试 kards_token_bind 流程 (prealloc -> complete -> poll) 通过, 文件末尾无孤立字符残留
+
+
+### 一个 token 同时绑 UID + QQ (2026-06-30)
+- **用户需求**: 同一个 token, 在群内发一次 校验kards账号XXX, 一次性绑完 UID 和 QQ 两个账号 (而不是不同 token 各自绑)
+- **改动**:
+  - `serve.py` `_handle_verify_token_complete`: 不传 purpose 时, 对所有 VERIFY_PURPOSE_VALID 里的 purpose 遍历, 如果该 key 已预占且未过期, 就标完成. 返回 data.completed = ["kards_token_bind", "diy_token_bind"] (实际标了哪些). 传 purpose 时仍只标那一个, 向后兼容
+  - `xunfang.py` + `nonebot_kards_recruit_plugin.py`: 调 complete 时不再传 purpose 字段, 让 serve.py 自动两个都标
+  - `account.html` `_doGetVerify`: 只生成一个 token, 为勾选的每个 purpose 都 `preallocVerifyToken` 同一个 token, 然后只渲染一张 `_renderUnifiedCard` (提示 "绑定: 公开招募 UID + 限定寻访 QQ"). 每个 purpose 仍独立轮询, 但共享同一 token. 任意一个 purpose 完成都触发 `bindUid` / `bindDiyQQ` 对应的方法
+  - 旧版 `pollVerifyToken` 仍然按 purpose 查不同的 key, 所以前端两个轮询都独立运行, 各自完成时各自绑
+- **端到端验证**:
+  - 同一 token `600*50%` 在 kards + diy 各 prealloc
+  - complete 不传 purpose → 返回 `completed: ["diy_token_bind", "kards_token_bind"]`
+  - 两个 purpose 轮询都拿到同一个 qq `99999`
+  - 落盘 verify_tokens.json: 两个 key (token|kards_token_bind 和 token|diy_token_bind) qq 都被写入
+  - 兼容场景: complete 带 purpose 只标那一个 (向后兼容)
+  - 异常: 未预占的 token complete 返回 code:1
+- **用户视角**:
+  1. 进入绑定页 (默认两项都勾)
+  2. 点一次"获取校验码"
+  3. 出现一张指令卡片: "在群内发送 (绑定: 公开招募 UID + 限定寻访 QQ) 校验kards账号600*50%"
+  4. 复制, 在群内粘贴发送 (1 条)
+  5. 几秒后 UID 和 QQ 同时绑好
+
 ### 跳过的提案
 ## 13. 联系 & 维护
 

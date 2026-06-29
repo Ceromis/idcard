@@ -13,7 +13,8 @@ from math import floor,ceil
 from typing import List, Dict, Tuple, Any, Optional
 
 from PIL import Image, ImageDraw, ImageFont
-from nonebot import on_command, get_driver, on_message, require
+from nonebot import on_command, get_driver, on_message, require, get_plugin_config
+from pydantic import BaseModel, ConfigDict
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, MessageSegment, Message
 from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
@@ -33,43 +34,32 @@ MAX_TICKET = 5
 DAILY_TAGS = 5
 REFRESH_LIMIT = 3
 AFRICAN = 70
+# 插件配置 (NoneBot 4.x pydantic 风格, 读 .env / env)
+class Config(BaseModel):
+    """nonebot_kards_recruit_plugin 配置项
+    用法 (.env 或 env):
+        kards_frontend_url=http://192.168.10.121:8000
+    """
+    model_config = ConfigDict(extra="ignore")
+
+    kards_frontend_url: str = "http://192.168.10.121:8000"
+
+
+config: Config = get_plugin_config(Config)
+
+
 BIND_CODE_TTL = 600
 BIND_CODE_COOLDOWN = 60
 BIND_CODE_DAILY = 10
-FRONTEND_PUSH_URL = os.environ.get('KARDS_FRONTEND_URL', 'http://192.168.10.121:8000') + '/api/bind_code'
-_KARDS_FRONTEND_RAW = os.environ.get('KARDS_FRONTEND_URL')
-if not _KARDS_FRONTEND_RAW:
-    print('[kards][WARN] KARDS_FRONTEND_URL not set, push to ' + FRONTEND_PUSH_URL + ' (default 127.0.0.1, frontend may NOT receive)', file=sys.stderr)
-    try:
-        _candidates = [
-            os.path.join(os.getcwd(), '.env'),
-            os.path.join(os.getcwd(), '.env.prod'),
-            os.path.join(os.getcwd(), '.env.dev'),
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'),
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '.env'),
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '.env'),
-        ]
-        print('[kards][diag] cwd=' + os.getcwd(), file=sys.stderr)
-        print('[kards][diag] __file__=' + os.path.abspath(__file__), file=sys.stderr)
-        for _p in _candidates:
-            if os.path.isfile(_p):
-                print('[kards][diag] env found at: ' + _p, file=sys.stderr)
-            else:
-                print('[kards][diag] env NOT found at: ' + _p, file=sys.stderr)
-        try:
-            from dotenv import load_dotenv as _load_dotenv
-            for _p in _candidates:
-                if os.path.isfile(_p):
-                    _load_dotenv(_p, override=False)
-            _after = os.environ.get('KARDS_FRONTEND_URL')
-            if _after:
-                print('[kards][diag] dotenv loaded KARDS_FRONTEND_URL=' + _after + ' (但 NoneBot 启动时未加载, 请确认 .env 路径或使用 ENV GROUPS / dotenv 启动方式)', file=sys.stderr)
-        except ImportError:
-            print('[kards][diag] python-dotenv not installed, skip auto-load', file=sys.stderr)
-    except Exception as _e:
-        print('[kards][diag][ERR] ' + str(_e), file=sys.stderr)
+# 从 NoneBot 插件配置读取前端地址 (config.kards_frontend_url)
+# 兼容老 env: 仍读 KARDS_FRONTEND_URL, 若 env 显式设置且 config 没设, 优先 env
+_KARDS_FRONTEND_ENV = os.environ.get('KARDS_FRONTEND_URL')
+_KARDS_FRONTEND_BASE = (_KARDS_FRONTEND_ENV or config.kards_frontend_url).rstrip("/")
+FRONTEND_PUSH_URL = _KARDS_FRONTEND_BASE + '/api/bind_code'
+if not _KARDS_FRONTEND_ENV and not config.kards_frontend_url:
+    print('[kards][WARN] kards_frontend_url not set, push to ' + FRONTEND_PUSH_URL + ' (使用 Config 默认值, 改 NoneBot .env 中 kards_frontend_url 即可覆盖)', file=sys.stderr)
 else:
-    print('[kards][INFO] KARDS_FRONTEND_URL=' + _KARDS_FRONTEND_RAW + ' -> push to ' + FRONTEND_PUSH_URL, file=sys.stderr)
+    print('[kards][INFO] frontend url=' + _KARDS_FRONTEND_BASE + ' -> push to ' + FRONTEND_PUSH_URL, file=sys.stderr)
 CARD_THUMB = (120, 168)
 COLS = 10
 ROWS = 18
@@ -1878,67 +1868,42 @@ except Exception:
 
 
 
-# ===== 验证码 (用于在网页上绑定公开招募 UID) =====
-get_kards_bind_code = on_command("kards验证码", priority=100)
+# ===== 校验指令监听 (2026-06-29 新机制) =====
+# 群内用户发送 "校验kards账号{token}" 时, 调 serve.py /api/verify_token/complete 标记 token 已绑定
+# 触发前端轮询拿到 qq, 自动绑定
+import re as _re_verify
 
+_FRONTEND_COMPLETE_URL = FRONTEND_PUSH_URL.rsplit("/", 1)[0] + "/verify_token/complete"
+_KARDS_VERIFY_RE = _re_verify.compile(r"^校验kards账号(.+)$")
+verify_cmd = on_message(priority=200, block=False)
 
-@get_kards_bind_code.handle()
+@verify_cmd.handle()
 async def _(bot: Bot, event: MessageEvent):
+    raw = ""
+    try:
+        raw = event.get_plaintext().strip()
+    except Exception:
+        return
+    m = _KARDS_VERIFY_RE.match(raw)
+    if not m:
+        return
+    token = m.group(1).strip()
     qq = str(event.user_id)
-    now_ts = int(time.time())
-    today_start_ts = int(datetime.combine(date.today(), datetime.min.time()).timestamp())
-    cooldown_remaining = 0
-    daily_used = 0
-    async with aiosqlite.connect(DB) as db:
-        cur = await db.execute(
-            "SELECT created_ts FROM BindCodes WHERE qq=? AND purpose=? ORDER BY created_ts DESC LIMIT 1",
-            (qq, "kards_uid_bind"),
-        )
-        row = await cur.fetchone()
-        if row:
-            elapsed = now_ts - int(row[0])
-            if elapsed < BIND_CODE_COOLDOWN:
-                cooldown_remaining = BIND_CODE_COOLDOWN - elapsed
-        cur = await db.execute(
-            "SELECT COUNT(*) FROM BindCodes WHERE qq=? AND purpose=? AND created_ts>=?",
-            (qq, "kards_uid_bind", today_start_ts),
-        )
-        daily_used = (await cur.fetchone())[0]
-    if cooldown_remaining > 0:
-        await get_kards_bind_code.finish(f"请勿频繁获取, 还需 {cooldown_remaining} 秒后可再次申请")
-    if daily_used >= BIND_CODE_DAILY:
-        await get_kards_bind_code.finish("今日验证码次数已用完, 请明天再试")
-    code = None
-    for _ in range(5):
-        candidate = str(random.randint(100000, 999999))
-        try:
-            async with aiosqlite.connect(DB) as db:
-                await db.execute(
-                    "INSERT INTO BindCodes(code, qq, group_id, created_ts, purpose) VALUES(?,?,?,?,?)",
-                    (candidate, qq, str(getattr(event, "group_id", "") or ""), now_ts, "kards_uid_bind"),
-                )
-                await db.commit()
-            code = candidate
-            break
-        except Exception:
-            continue
-    if not code:
-        await get_kards_bind_code.finish("验证码生成失败, 请稍后再试")
-
+    if not token:
+        return
     try:
         import aiohttp
-        print('[kards][push] -> %s qq=%s code=%s purpose=kards_uid_bind' % (FRONTEND_PUSH_URL, qq, code), file=sys.stderr)
+        print('[kards][verify] -> %s qq=%s token=%s' % (_FRONTEND_COMPLETE_URL, qq, token), file=sys.stderr)
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3)) as session:
-            async with session.post(FRONTEND_PUSH_URL, json={
+            async with session.post(_FRONTEND_COMPLETE_URL, json={
+                "token": token,
                 "qq": qq,
-                "code": code,
-                "purpose": "kards_uid_bind",
-                "ts": now_ts,
+                # 不传 purpose: serve.py 会同时为所有 purpose 标完成 (kards + diy 一次绑俩)
             }) as resp:
-                print('[kards][push] <- %s status=%s' % (FRONTEND_PUSH_URL, resp.status), file=sys.stderr)
+                text = await resp.text()
+                print('[kards][verify] <- %s status=%s body=%s' % (_FRONTEND_COMPLETE_URL, resp.status, text[:200]), file=sys.stderr)
     except Exception as e:
-        print('[kards][push][ERR] %s failed: %s' % (FRONTEND_PUSH_URL, e), file=sys.stderr)
-
-    await get_kards_bind_code.finish(
-        f"[CQ:at,qq={qq}]\nkards 验证码: {code}\n10 分钟内有效, 请到 kards 账号页面绑定公开招募 UID"
-    )
+        print('[kards][verify][ERR] %s failed: %s' % (_FRONTEND_COMPLETE_URL, e), file=sys.stderr)
+        return
+    # 静默: 成功也不在群里发消息, 失败/无匹配/异常都直接 return
+    # 前端轮询会从 serve.py 拿到 qq 并自动绑定, 用户体验上不依赖 bot 群内回复

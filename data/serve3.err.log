@@ -1,0 +1,9 @@
+[smtp] 未启用 (youxiang/youxiang.txt 中 enabled=false 或仍为占位符 滚木)
+[29/Jun/2026 23:31:46] "POST /api/verify_token HTTP/1.1" 200 -
+[29/Jun/2026 23:31:46] "POST /api/verify_token/complete HTTP/1.1" 200 -
+[29/Jun/2026 23:31:46] "GET /api/verify_token?token=456*12@&purpose=kards_token_bind HTTP/1.1" 200 -
+[29/Jun/2026 23:31:46] "POST /api/verify_token HTTP/1.1" 200 -
+[29/Jun/2026 23:31:46] "POST /api/verify_token/complete HTTP/1.1" 200 -
+[29/Jun/2026 23:31:46] "GET /api/verify_token?token=789*65 HTTP/1.1" 400 -
+[smtp] 未启用 (youxiang/youxiang.txt 中 enabled=false 或仍为占位符 滚木)
+[29/Jun/2026 23:31:46] "POST /api/email_code HTTP/1.1" 200 -
