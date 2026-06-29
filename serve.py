@@ -72,164 +72,6 @@ VERIFY_TOKEN_TTL = 600  # 校验码 10 分钟过期
 BIND_CACHE = {}
 VERIFY_CACHE = {}
 
-# ===== 聊天室 (2026-06-30) =====
-# 消息: append-only 列表, 每条 {id, ts, username, type, text?, card_id?, card_title?}
-# 权限: {username: {granted, ts, reason, by}}
-# 鉴权: 服务端没有账号库 (localStorage 在浏览器), 因此:
-#   - admin 靠硬编码 (username == "admin" 且 password hash == sha256("admin123"))
-#   - 普通用户的资格门槛通过前端传来的 email/uid/diyQQ 字段计算
-CHAT_MESSAGES_FILE = os.path.join(DATA_DIR, "chat_messages.json")
-CHAT_PERMS_FILE = os.path.join(DATA_DIR, "chat_permissions.json")
-CHAT_LOCK = threading.Lock()
-CHAT_MESSAGES_MAX = 1000  # 超过按 id 截断最旧
-CHAT_DIY_LIKES_THRESHOLD = 10
-CHAT_DIY_COUNT_THRESHOLD = 5
-CHAT_RECRUIT_ELITE_THRESHOLD = 10
-CHAT_ADMIN_USERNAME = "admin"
-CHAT_ADMIN_PWD = "admin123"
-CHAT_MESSAGES = []
-CHAT_PERMS = {}
-CHAT_NEXT_ID = 1
-
-
-def _save_chat_messages():
-    with CHAT_LOCK:
-        _save_json_file(CHAT_MESSAGES_FILE, CHAT_MESSAGES)
-
-
-def _save_chat_perms():
-    with CHAT_LOCK:
-        _save_json_file(CHAT_PERMS_FILE, CHAT_PERMS)
-
-
-def _compute_sha256_hex(s):
-    """和前端 KardsAccount.sha256 一致的纯 Python 实现, 64 位 hex."""
-    import hashlib
-    return hashlib.sha256(s.encode("utf-8")).hexdigest()
-
-
-def _is_admin(username, pwd_hash):
-    if not username or not pwd_hash:
-        return False
-    if username != CHAT_ADMIN_USERNAME:
-        return False
-    return pwd_hash == _compute_sha256_hex(CHAT_ADMIN_PWD)
-
-
-def _http_post_json(url, payload, timeout=8.0):
-    """同步 HTTP POST JSON, 返回 (status_code, body_dict or None). 不抛异常."""
-    import urllib.request
-    import urllib.error
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        url, data=data, method="POST",
-        headers={"Content-Type": "application/json"}
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.status, json.loads(resp.read().decode("utf-8"))
-    except Exception as e:
-        return 0, {"_error": str(e)}
-
-
-def _check_chat_qualification(account):
-    """
-    输入: {email, uid, diyQQ, is_admin}
-    返回: (allowed: bool, reason: str, detail: dict)
-      reason 取值: "admin" | "granted" | "qualification" | "missing_email" |
-                    "missing_uid" | "missing_qq" | "no_qualification"
-    """
-    detail = {"has_diy_qualify": False, "has_recruit_qualify": False,
-              "diy_count": 0, "recruit_count": 0}
-    if account.get("is_admin"):
-        return True, "admin", detail
-    email = str(account.get("email") or "").strip()
-    uid = str(account.get("uid") or "").strip()
-    diy_qq = str(account.get("diyQQ") or "").strip()
-    if not email:
-        return False, "missing_email", detail
-    if not uid:
-        return False, "missing_uid", detail
-    if not diy_qq:
-        return False, "missing_qq", detail
-    # 优先看管理员赐予的权限
-    with CHAT_LOCK:
-        grant = CHAT_PERMS.get(uid) or CHAT_PERMS.get(email)
-    if grant and grant.get("granted"):
-        return True, "granted", detail
-    # 否则: 调 DIY 后端 + 招募后端 实时算资格
-    try:
-        # 用一个简化的内联计算: 同样依赖后端, 不依赖本地缓存
-        # 但 Settings 在哪读? 借用已有的 fallback 路径: 配置文件 youxiang.txt 没有 API 地址
-        # 我们需要从 settings.json / 默认值读; 不靠谱; 改成读环境变量
-        diy_base = os.environ.get("KARDS_DIY_API", "http://192.168.10.100:8090").rstrip("/")
-        rec_base = os.environ.get("KARDS_RECRUIT_API", "http://110.42.63.235:8080").rstrip("/")
-        status, body = _http_post_json(diy_base + "/diy/user_cards", {"uid": diy_qq})
-        if status == 200 and body and body.get("code") == 0:
-            cards = (body.get("data") or {}).get("cards") or []
-            cnt = sum(1 for c in cards if int(c.get("likes") or 0) >= CHAT_DIY_LIKES_THRESHOLD)
-            detail["diy_count"] = cnt
-            if cnt >= CHAT_DIY_COUNT_THRESHOLD:
-                detail["has_diy_qualify"] = True
-        status, body = _http_post_json(rec_base + "/kards/user_cards", {"uid": uid, "rare": "金卡"})
-        if status == 200 and body and body.get("code") == 0:
-            cards = (body.get("data") or {}).get("cards") or []
-            seen = set()
-            cnt = 0
-            for c in cards:
-                cid = c.get("card_id")
-                if cid and cid not in seen:
-                    seen.add(cid)
-                    cnt += 1
-            detail["recruit_count"] = cnt
-            if cnt >= CHAT_RECRUIT_ELITE_THRESHOLD:
-                detail["has_recruit_qualify"] = True
-    except Exception as e:
-        print("[chat] 资格检测异常: " + str(e), file=sys.stderr)
-    if detail["has_diy_qualify"] or detail["has_recruit_qualify"]:
-        return True, "qualification", detail
-    return False, "no_qualification", detail
-
-
-def _sanitize_text(text):
-    """白名单过滤: 提取 https?:// 链接, 其余纯文本. 防 XSS / 防止堆链接."""
-    if not text:
-        return ""
-    text = str(text)
-    # 防止 data: / vbscript: / javascript:
-    lowered = text.lower()
-    for bad in ("<script", "</script", "<img", "data:image", "data:audio", "data:video",
-                "javascript:", "vbscript:", "onerror=", "onload=", "<iframe", "<embed"):
-        if bad in lowered:
-            return None  # 标记拒绝
-    # 截断
-    text = text[:500]
-    return text
-
-
-def _extract_links(text):
-    """从纯文本中提取 https?:// 链接 (返回列表). 简单正则, 不复杂. 全局最多 1 个, 多了拒绝."""
-    import re
-    matches = re.findall(r"https?://[^\s<>\"']+", text)
-    return matches
-
-
-def _format_chat_text_html(text):
-    """把纯文本转成安全的 HTML 片段, 仅识别 https? 链接, 其他字符原样输出 (但要 escape)."""
-    import re, html as html_mod
-    parts = re.split(r"(https?://[^\s<>\"']+)", text)
-    out = []
-    for p in parts:
-        if not p:
-            continue
-        if p.startswith(("http://", "https://")):
-            href = html_mod.escape(p, quote=True)
-            out.append('<a href="' + href + '" target="_blank" rel="noopener noreferrer">' + html_mod.escape(p) + '</a>')
-        else:
-            out.append(html_mod.escape(p).replace("\n", "<br>"))
-    return "".join(out)
-
-
 def _load_json_file(path, default):
     if not os.path.exists(path):
         return default
@@ -410,8 +252,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if length <= 0:
             return {}
         try:
-            return json.loads(self.rfile.read(length).decode("utf-8"))
-        except Exception:
+            raw = self.rfile.read(length).decode("utf-8")
+            print("[read-json] len=" + str(length) + " raw=" + repr(raw[:200]), file=sys.stderr)
+            return json.loads(raw)
+        except Exception as e:
+            print("[read-json] err: " + str(e), file=sys.stderr)
             return {}
 
     # ---------- 旧 bind_code 兼容 ----------
@@ -586,188 +431,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 
     # ---------- 聊天室 API ----------
-    def _handle_chat_permission_get(self, parsed):
-        qs = urllib.parse.parse_qs(parsed.query)
-        username = (qs.get("username", [""])[0] or "").strip()
-        email = (qs.get("email", [""])[0] or "").strip()
-        uid = (qs.get("uid", [""])[0] or "").strip()
-        diy_qq = (qs.get("diy_qq", [""])[0] or "").strip()
-        is_admin = (qs.get("is_admin", ["0"])[0] or "0") == "1"
-        if not username:
-            self._send_json(400, {"code": 1, "msg": "缺少 username"})
-            return
-        allowed, reason, detail = _check_chat_qualification({
-            "email": email, "uid": uid, "diyQQ": diy_qq, "is_admin": is_admin
-        })
-        self._send_json(200, {
-            "code": 0,
-            "data": {
-                "allowed": allowed,
-                "reason": reason,
-                "is_admin": is_admin,
-                "diy_count": detail["diy_count"],
-                "recruit_count": detail["recruit_count"],
-                "diy_threshold": CHAT_DIY_COUNT_THRESHOLD,
-                "recruit_threshold": CHAT_RECRUIT_ELITE_THRESHOLD,
-            }
-        })
 
-    def _handle_chat_messages_get(self, parsed):
-        qs = urllib.parse.parse_qs(parsed.query)
-        try:
-            since = int(qs.get("since", ["0"])[0] or 0)
-        except Exception:
-            since = 0
-        try:
-            limit = int(qs.get("limit", ["50"])[0] or 50)
-        except Exception:
-            limit = 50
-        if limit < 1:
-            limit = 1
-        if limit > 200:
-            limit = 200
-        with CHAT_LOCK:
-            all_msgs = CHAT_MESSAGES
-            latest_id = all_msgs[-1]["id"] if all_msgs else 0
-            result = [m for m in all_msgs if m["id"] > since][-limit:]
-        self._send_json(200, {"code": 0, "data": {"messages": result, "latest_id": latest_id}})
 
-    def _handle_chat_send(self, data):
-        global CHAT_NEXT_ID
-        if not isinstance(data, dict):
-            data = {}
-        username = str(data.get("username") or "").strip()
-        email = str(data.get("email") or "").strip()
-        uid = str(data.get("uid") or "").strip()
-        diy_qq = str(data.get("diyQQ") or "").strip()
-        is_admin = bool(data.get("is_admin"))
-        msg_type = str(data.get("type") or "").strip()
-        text = data.get("text")
-        card_id = data.get("card_id")
-        if not username:
-            self._send_json(403, {"code": 1, "msg": "缺少 username"})
-            return
-        if msg_type not in ("text", "card"):
-            self._send_json(403, {"code": 1, "msg": "type 必须为 text 或 card"})
-            return
-        # 鉴权 + 资格
-        allowed, reason, _ = _check_chat_qualification({
-            "email": email, "uid": uid, "diyQQ": diy_qq, "is_admin": is_admin
-        })
-        if not allowed:
-            self._send_json(403, {"code": 1, "msg": "无聊天权限: " + reason})
-            return
-        msg = {
-            "id": None,
-            "ts": time.time(),
-            "username": username,
-            "type": msg_type,
-        }
-        if msg_type == "text":
-            clean = _sanitize_text(text)
-            if clean is None:
-                self._send_json(400, {"code": 1, "msg": "内容含不安全字符 (如 <script> / data: / javascript:)"})
-                return
-            if not clean.strip():
-                self._send_json(400, {"code": 1, "msg": "消息不能为空"})
-                return
-            # 链接数量限制
-            links = _extract_links(clean)
-            if len(links) > 1:
-                self._send_json(400, {"code": 1, "msg": "消息中最多包含 1 个链接"})
-                return
-            msg["text"] = clean
-        else:  # card
-            try:
-                cid = int(card_id)
-            except Exception:
-                self._send_json(400, {"code": 1, "msg": "card_id 必须是整数"})
-                return
-            if cid <= 0:
-                self._send_json(400, {"code": 1, "msg": "card_id 不合法"})
-                return
-            msg["card_id"] = cid
-            # 顺带记录作者, 方便客户端立即显示 (避免再拉 /diy/card)
-            card_author = str(data.get("card_author") or "").strip()
-            if card_author:
-                msg["card_author"] = card_author[:50]
-        # 写入
-        with CHAT_LOCK:
-            msg["id"] = CHAT_NEXT_ID
-            CHAT_NEXT_ID += 1
-            CHAT_MESSAGES.append(msg)
-            # 截断
-            if len(CHAT_MESSAGES) > CHAT_MESSAGES_MAX:
-                del CHAT_MESSAGES[:len(CHAT_MESSAGES) - CHAT_MESSAGES_MAX]
-            try:
-                _save_chat_messages()
-            except Exception as e:
-                pass
-        # 系统横幅: 管理员首次发消息时插一条横幅 (可选, 这里只对管理员发, 普通用户不发)
-        # 暂不实现, 简化逻辑
-        self._send_json(200, {"code": 0, "data": {"id": msg["id"], "ts": msg["ts"]}})
 
-    def _handle_chat_grant(self, data):
-        global CHAT_NEXT_ID
-        if not isinstance(data, dict):
-            data = {}
-        admin_username = str(data.get("admin_username") or "").strip()
-        admin_pwd_hash = str(data.get("admin_pwd_hash") or "").strip()
-        target = str(data.get("target_username") or "").strip()
-        grant = bool(data.get("grant"))
-        reason = str(data.get("reason") or "").strip()[:200]
-        if not _is_admin(admin_username, admin_pwd_hash):
-            self._send_json(403, {"code": 1, "msg": "需要管理员权限"})
-            return
-        if not target:
-            self._send_json(400, {"code": 1, "msg": "缺少 target_username"})
-            return
-        with CHAT_LOCK:
-            if grant:
-                CHAT_PERMS[target] = {
-                    "granted": True,
-                    "ts": time.time(),
-                    "reason": reason,
-                    "by": admin_username,
-                }
-            else:
-                # 收回: 标记 granted=False 或直接删条目
-                CHAT_PERMS[target] = {
-                    "granted": False,
-                    "ts": time.time(),
-                    "reason": reason,
-                    "by": admin_username,
-                }
-            try:
-                _save_chat_perms()
-            except Exception as e:
-                pass
-        # 同步发一条系统横幅消息
-        sys_msg = {
-            "id": None,
-            "ts": time.time(),
-            "username": "system",
-            "type": "system",
-            "text": admin_username + " \u8c03\u6574\u4e86 " + target + " \u7684\u804a\u5929\u6743\u9650 (" + ("\u5df2\u8d60\u4e88" if grant else "\u5df2\u6536\u56de") + ")" + ((" \u00b7 " + reason) if reason else ""),
-        }
-        with CHAT_LOCK:
-            sys_msg["id"] = CHAT_NEXT_ID
-            CHAT_NEXT_ID += 1
-            CHAT_MESSAGES.append(sys_msg)
-            if len(CHAT_MESSAGES) > CHAT_MESSAGES_MAX:
-                del CHAT_MESSAGES[:len(CHAT_MESSAGES) - CHAT_MESSAGES_MAX]
-            try:
-                _save_chat_messages()
-            except Exception:
-                pass
-        self._send_json(200, {"code": 0, "data": {"ok": True, "granted": grant}})
     # ---------- 入口分发 ----------
     def do_POST(self):
         path = self.path.rstrip("/")
-        if path == "/api/chat/send":
-            return self._handle_chat_send(self._read_json())
-        if path == "/api/chat/grant":
-            return self._handle_chat_grant(self._read_json())
         if path == "/api/bind_code":
             return self._handle_bind_code_post(self._read_json())
         if path == "/api/bind_code/verify":
@@ -782,10 +451,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
-        if parsed.path.rstrip("/") == "/api/chat/permission":
-            return self._handle_chat_permission_get(parsed)
-        if parsed.path.rstrip("/") == "/api/chat/messages":
-            return self._handle_chat_messages_get(parsed)
         if parsed.path.rstrip("/") == "/api/bind_code":
             return self._handle_bind_code_get(parsed)
         if parsed.path.rstrip("/") == "/api/verify_token":
@@ -866,16 +531,6 @@ def main():
         BIND_CACHE.update(_load_json_file(BIND_CODES_FILE, {}))
     with VERIFY_TOKENS_LOCK:
         VERIFY_CACHE.update(_load_json_file(VERIFY_TOKENS_FILE, {}))
-    # 聊天室: 加载消息和权限, 重算 CHAT_NEXT_ID
-    with CHAT_LOCK:
-        msgs = _load_json_file(CHAT_MESSAGES_FILE, [])
-        if isinstance(msgs, list):
-            CHAT_MESSAGES.extend(msgs)
-            if CHAT_MESSAGES:
-                CHAT_NEXT_ID = max(int(m.get("id") or 0) for m in CHAT_MESSAGES) + 1
-        perms = _load_json_file(CHAT_PERMS_FILE, {})
-        if isinstance(perms, dict):
-            CHAT_PERMS.update(perms)
     gc_thread = threading.Thread(target=_gc_loop, name="bind-cache-gc", daemon=True)
     gc_thread.start()
 
