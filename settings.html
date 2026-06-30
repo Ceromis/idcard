@@ -1,147 +1,225 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <title>KARDS 设置</title>
 <link rel="icon" href="data:,">
+<link rel="stylesheet" href="theme.css">
 <style>
-  :root {
-    --panel-bg: rgba(20, 22, 26, 0.92);
-    --btn-bg: linear-gradient(#2c2c30, #1a1a1c);
-    --btn-border: #4a4a50;
-    --text: #e6e6e6;
-    --accent: #d6a26a;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
-  body {
-    font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
-    color: var(--text);
-    background: #0c0c0e url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.9'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>");
-    min-height: 100vh;
-  }
-  .topbar {
-    position: fixed; top: 0; right: 0; left: 0; height: 56px;
-    display: flex; align-items: center; justify-content: flex-end;
-    padding: 0 22px; background: rgba(15,15,18,0.7);
-    border-bottom: 1px solid #1f1f22; z-index: 50;
-  }
-  .topbar a, .topbar span {
-    color: #aaa; text-decoration: none; margin-left: 18px; font-size: 14px;
-    letter-spacing: 2px; padding: 6px 10px; border-radius: 4px;
-  }
-  .topbar a:hover { color: var(--accent); background: rgba(214,162,106,0.08); }
-  .icon-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 36px; height: 36px; border: 1px dashed #555; border-radius: 4px;
-    color: var(--accent); font-size: 12px; cursor: pointer; margin-left: 14px;
-    border-style: solid; background: rgba(214,162,106,0.08);
-  }
-  .wrap { max-width: 760px; margin: 100px auto 40px; padding: 0 20px; }
+  .wrap { max-width: 760px; margin: 0 auto; }
   .section {
-    background: var(--panel-bg); border: 1px solid #3a3a40; border-radius: 6px;
     padding: 26px 30px; margin-bottom: 22px;
   }
-  h2 { font-size: 20px; letter-spacing: 4px; color: #fff; margin-bottom: 18px; border-left: 3px solid var(--accent); padding-left: 10px; }
+  .section h2 {
+    border-left: 3px solid var(--accent); padding-left: 10px;
+  }
   .field { margin-bottom: 14px; }
-  .field label { display: block; font-size: 13px; color: #aaa; margin-bottom: 6px; letter-spacing: 2px; }
-  .input {
-    width: 100%; height: 42px; padding: 0 12px;
-    background: #0a0a0c; color: #f0f0f0;
-    border: 1px solid #3a3a40; border-radius: 4px;
-    font-size: 14px;
-  }
-  .input:focus { outline: none; border-color: var(--accent); }
-  .btn {
-    height: 42px; padding: 0 18px;
-    background: var(--btn-bg); color: #e6e6e6;
-    border: 1px solid var(--btn-border); border-radius: 4px;
-    font-size: 14px; letter-spacing: 4px; cursor: pointer;
-  }
-  .btn.primary {
-    background: linear-gradient(#3a2e1a, #1a1410);
-    color: #f0d6a0; border: 1px solid var(--accent);
-  }
-  .btn:hover:not(:disabled) { background: linear-gradient(#3a3a3f, #1f1f22); border-color: #6a6a72; }
-  .btn.primary:hover:not(:disabled) { background: linear-gradient(#4a3a20, #2a1f15); }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn.danger { color: #ff8a8a; border-color: #6a3a3a; }
-  .btn.danger:hover:not(:disabled) { background: #3a1a1a; }
+  .field label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; letter-spacing: 2px; }
   .row { display: flex; gap: 10px; align-items: center; }
   .msg { font-size: 13px; min-height: 18px; margin-top: 4px; }
-  .err { color: #e57373; }
-  .ok { color: #8bc34a; }
-  .info { color: #aaa; font-size: 12px; margin-top: 8px; line-height: 1.6; }
+  .msg.err { color: #e57373; }
+  .msg.ok { color: #8bc34a; }
+  .btn.danger { color: #ff8a8a; border-color: #6a3a3a; }
+  .btn.danger:hover:not(:disabled) { background: #3a1a1a; }
   table { width: 100%; border-collapse: collapse; margin-top: 6px; }
-  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #2a2a2e; font-size: 13px; }
-  th { color: #aaa; font-weight: 500; letter-spacing: 2px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--panel-border); font-size: 13px; }
+  th { color: var(--text-dim); font-weight: 500; letter-spacing: 2px; }
   td .role { color: var(--accent); }
-  .perm-warn { color: #ff8a8a; font-size: 14px; padding: 30px; text-align: center; }
+
+  /* 主题选择 */
+  .theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-top: 14px; }
+  .theme-card {
+    padding: 16px; border-radius: 6px; cursor: pointer;
+    border: 2px solid var(--panel-border);
+    text-align: center; transition: all .2s;
+  }
+  .theme-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .theme-card.active { border-color: var(--accent); background: rgba(214,162,106,0.08); }
+  .theme-card .theme-name { font-size: 14px; color: var(--text-bright); letter-spacing: 2px; margin-bottom: 6px; }
+  .theme-card .theme-desc { font-size: 11px; color: var(--text-dim); }
+  .theme-card .theme-preview {
+    width: 100%; height: 40px; border-radius: 4px; margin-bottom: 10px;
+    border: 1px solid rgba(128,128,128,0.2);
+  }
+
+  /* 退出按钮 */
+  .logout-section {
+    padding: 26px 30px; margin-bottom: 22px;
+    text-align: center;
+  }
+  .logout-section .btn {
+    width: 100%; max-width: 300px; height: 46px;
+    font-size: 16px; letter-spacing: 6px;
+    color: #ff8a8a; border-color: #6a3a3a;
+  }
+  .logout-section .btn:hover:not(:disabled) {
+    background: #3a1a1a; border-color: #c64a4a; color: #fff;
+  }
+
+  .account-info {
+    padding: 16px 20px; margin-bottom: 22px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .account-info .avatar {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #8a6a2a);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: #fff; font-weight: bold;
+  }
+  .account-info .details { flex: 1; }
+  .account-info .details .name { font-size: 18px; color: var(--text-bright); letter-spacing: 2px; }
+  .account-info .details .role-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 3px;
+    font-size: 11px; letter-spacing: 1px; margin-top: 4px;
+    background: rgba(214,162,106,0.15); color: var(--accent);
+    border: 1px solid rgba(214,162,106,0.3);
+  }
 </style>
 </head>
 <body>
 
-<div class="topbar">
-  <a href="deck.html">卡 组</a>
-  <a href="recruit.html">公开招募</a>
-  <a href="diy.html">限定寻访</a>
-  <a href="account.html">账 号</a>
-  <span id="who" style="color:#cfcfcf"></span>
-  <a id="btnLogout" style="display:none" href="javascript:void(0)">退出</a>
-  <span class="icon-btn" title="设置">SET</span>
+<div class="side-nav">
+  <a class="slot" href="deck.html" data-page="deck">卡 组</a>
+  <a class="slot" href="recruit.html" data-page="recruit">公开招募</a>
+  <a class="slot" href="diy.html" data-page="diy">限定寻访</a>
+  <a class="slot" href="search.html" data-page="search">搜 索</a>
+  <a class="slot" href="settings.html" data-page="settings">设 置</a>
 </div>
 
-<div class="wrap">
-  <div id="perm" class="section" style="display:none">
-    <div class="perm-warn">需要先登录管理员账号才能访问设置</div>
+<div class="topbar">
+  <div class="topbar-left">
+    <nav class="topbar-nav">
+      <a href="deck.html" data-page="deck">卡组</a>
+      <a href="recruit.html" data-page="recruit">公开招募</a>
+      <a href="diy.html" data-page="diy">限定寻访</a>
+      <a href="search.html" data-page="search">搜索</a>
+    </nav>
   </div>
+  <div class="topbar-right">
+    <span id="who" class="topbar-name"></span>
+    <a class="settings-btn active" href="settings.html" title="设置">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+    </a>
+  </div>
+</div>
 
-  <div id="content" style="display:none">
-    <div class="section">
-      <h2>功能 API 接入</h2>
-      <div class="field">
-        <label>API 基础地址 (Base URL)</label>
-        <input class="input" id="apiBase" placeholder="http://110.42.63.235:8080" />
+<div class="page-main">
+  <div class="wrap">
+    <div id="loginRequired" style="display:none">
+      <div class="section" style="text-align:center">
+        <h2>请先登录</h2>
+        <p class="info" style="margin:16px 0">登录后才能访问设置页面</p>
+        <a class="btn primary" href="account.html" style="display:inline-block;text-decoration:none;line-height:42px;padding:0 30px">前往登录</a>
       </div>
-      <div class="row">
-        <button class="btn primary" id="btnSaveApi">保 存</button>
-        <button class="btn" id="btnResetApi">恢复默认</button>
-      </div>
-      <div class="msg" id="apiMsg"></div>
-      <div class="info">此设置会保存到浏览器 localStorage, 所有页面(招募/卡组)均会从这里读取后端地址.</div>
     </div>
 
-    <div class="section">
-      <h2>限定寻访 API 接入</h2>
-      <div class="field">
-        <label>限定寻访 API 基础地址 (Base URL)</label>
-        <input class="input" id="diyApiBase" placeholder="http://192.168.10.100:8090" />
+    <div id="settingsContent" style="display:none">
+      <div class="account-info panel" id="accountInfo">
+        <div class="avatar" id="avatarLetter">A</div>
+        <div class="details">
+          <div class="name" id="displayName">-</div>
+          <span class="role-tag" id="roleTag">用户</span>
+        </div>
       </div>
-      <div class="row">
-        <button class="btn primary" id="btnSaveDiyApi">保 存</button>
-        <button class="btn" id="btnResetDiyApi">恢复默认</button>
+
+      <div class="section panel">
+        <h2>主题外观</h2>
+        <p class="info" style="margin-bottom:10px">选择界面主题风格</p>
+        <div class="theme-grid" id="themeGrid">
+          <div class="theme-card" data-theme="default">
+            <div class="theme-preview" style="background:linear-gradient(135deg,#0c0c0e,#1a1a1e)"></div>
+            <div class="theme-name">默认</div>
+            <div class="theme-desc">经典暗色</div>
+          </div>
+          <div class="theme-card" data-theme="white">
+            <div class="theme-preview" style="background:linear-gradient(135deg,#f0f0f0,#ffffff)"></div>
+            <div class="theme-name">白色</div>
+            <div class="theme-desc">简洁明亮</div>
+          </div>
+          <div class="theme-card" data-theme="frosted">
+            <div class="theme-preview" style="background:linear-gradient(135deg,#0a0a12,#1a1a2e)"></div>
+            <div class="theme-name">毛玻璃</div>
+            <div class="theme-desc">通透质感</div>
+          </div>
+          <div class="theme-card" data-theme="liquid">
+            <div class="theme-preview" style="background:linear-gradient(135deg,#0a0806,#2a1a0a)"></div>
+            <div class="theme-name">弹性液态</div>
+            <div class="theme-desc">温暖流光</div>
+          </div>
+        </div>
       </div>
-      <div class="msg" id="diyApiMsg"></div>
-      <div class="info">此设置控制 diy.html (限定寻访) 页面访问的后端地址, 与上面"功能 API 接入"独立.</div>
-    </div>
-    </div>
 
-    <div class="section">
-      <h2>修改密码</h2>
-      <div class="field"><label>原密码</label><input class="input" id="oldPwd" type="password" /></div>
-      <div class="field"><label>新密码</label><input class="input" id="newPwd" type="password" /></div>
-      <div class="field"><label>确认新密码</label><input class="input" id="newPwd2" type="password" /></div>
-      <button class="btn primary" id="btnChangePwd">修 改</button>
-      <div class="msg" id="pwdMsg"></div>
-    </div>
+      <div class="section panel">
+        <h2>导航布局</h2>
+        <p class="info" style="margin-bottom:10px">切换顶部横栏或左侧侧栏导航模式</p>
+        <div class="theme-grid">
+          <div class="theme-card" data-nav="topbar">
+            <div class="theme-preview" style="background:linear-gradient(180deg,#333 12%,#222 12%);display:flex;align-items:flex-start;padding-top:6px;justify-content:center;gap:6px">
+              <div style="width:30px;height:3px;background:#d6a26a;border-radius:1px"></div>
+              <div style="width:30px;height:3px;background:#555;border-radius:1px"></div>
+              <div style="width:30px;height:3px;background:#555;border-radius:1px"></div>
+            </div>
+            <div class="theme-name">顶部横栏</div>
+            <div class="theme-desc">默认导航方式</div>
+          </div>
+          <div class="theme-card" data-nav="sidebar">
+            <div class="theme-preview" style="background:linear-gradient(90deg,#2a2a2e 25%,#222 25%);display:flex;flex-direction:column;align-items:flex-start;padding:6px 4px;gap:3px">
+              <div style="width:20px;height:3px;background:#d6a26a;border-radius:1px"></div>
+              <div style="width:20px;height:3px;background:#555;border-radius:1px"></div>
+              <div style="width:20px;height:3px;background:#555;border-radius:1px"></div>
+            </div>
+            <div class="theme-name">左侧侧栏</div>
+            <div class="theme-desc">经典侧边导航</div>
+          </div>
+        </div>
+      </div>
 
-    <div class="section" id="adminSection">
-      <h2>账号管理 (仅管理员)</h2>
-      <table>
-        <thead><tr><th>邮箱</th><th>UID</th><th>角色</th><th>注册时间</th><th>操作</th></tr></thead>
-        <tbody id="userTable"></tbody>
-      </table>
-      <div class="info">管理员可在此查看/删除所有账号, 但不能删除自己.</div>
+      <div class="section panel">
+        <h2>功能 API 接入</h2>
+        <div class="field">
+          <label>公开招募 API 地址</label>
+          <input class="input" id="apiBase" placeholder="http://110.42.63.235:8080" />
+        </div>
+        <div class="row">
+          <button class="btn primary" id="btnSaveApi">保 存</button>
+          <button class="btn" id="btnResetApi">恢复默认</button>
+        </div>
+        <div class="msg" id="apiMsg"></div>
+      </div>
+
+      <div class="section panel">
+        <h2>限定寻访 API 接入</h2>
+        <div class="field">
+          <label>限定寻访 API 地址</label>
+          <input class="input" id="diyApiBase" placeholder="http://192.168.10.100:8090" />
+        </div>
+        <div class="row">
+          <button class="btn primary" id="btnSaveDiyApi">保 存</button>
+          <button class="btn" id="btnResetDiyApi">恢复默认</button>
+        </div>
+        <div class="msg" id="diyApiMsg"></div>
+      </div>
+
+      <div class="section panel">
+        <h2>修改密码</h2>
+        <div class="field"><label>原密码</label><input class="input" id="oldPwd" type="password" /></div>
+        <div class="field"><label>新密码</label><input class="input" id="newPwd" type="password" /></div>
+        <div class="field"><label>确认新密码</label><input class="input" id="newPwd2" type="password" /></div>
+        <button class="btn primary" id="btnChangePwd">修 改</button>
+        <div class="msg" id="pwdMsg"></div>
+      </div>
+
+      <div class="section panel" id="adminSection" style="display:none">
+        <h2>账号管理 (仅管理员)</h2>
+        <table>
+          <thead><tr><th>用户名</th><th>UID</th><th>角色</th><th>注册时间</th><th>操作</th></tr></thead>
+          <tbody id="userTable"></tbody>
+        </table>
+      </div>
+
+      <div class="logout-section panel">
+        <button class="btn" id="btnLogout">退出登录</button>
+      </div>
     </div>
   </div>
 </div>
@@ -149,13 +227,6 @@
 <script src="account.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
-
-function refreshTopbar() {
-  const cur = KardsAccount.getCurrentAccount();
-  $("#who").textContent = cur ? cur.email + (cur.isAdmin ? " (管理员)" : "") : "未登录";
-  $("#btnLogout").style.display = cur ? "" : "none";
-}
-$("#btnLogout").addEventListener("click", () => { KardsAccount.logout(); location.href = "account.html"; });
 
 function renderUserTable() {
   const cur = KardsAccount.getCurrentAccount();
@@ -165,25 +236,23 @@ function renderUserTable() {
   tbody.innerHTML = "";
   KardsAccount.listAll().forEach(a => {
     const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${a.email}</td>
-      <td>${a.uid || "<span style='color:#888'>未绑定</span>"}</td>
-      <td>${a.isAdmin ? "<span class='role'>管理员</span>" : "用户"}</td>
-      <td>${new Date(a.createdAt).toLocaleString()}</td>
-      <td>${a.email === cur.email ? "" : `<button class="btn danger" data-del="${a.email}">删除</button>`}</td>
-    `;
+    tr.innerHTML =
+      '<td>' + a.username + '</td>' +
+      '<td>' + (a.uid || '<span style="color:#888">未绑定</span>') + '</td>' +
+      '<td>' + (a.isAdmin ? '<span class="role">管理员</span>' : '用户') + '</td>' +
+      '<td>' + new Date(a.createdAt).toLocaleString() + '</td>' +
+      '<td>' + (a.username === cur.username ? '' : '<button class="btn danger" data-del="' + a.username + '">删除</button>') + '</td>';
     tbody.appendChild(tr);
   });
   tbody.querySelectorAll("[data-del]").forEach(b => {
     b.addEventListener("click", async () => {
       const target = b.dataset.del;
       if (!confirm("确认删除账号 " + target + " ?")) return;
-      // 二次校验: 管理员必须输入自己的密码, 避免误点 / 借号
-      const pwd = prompt("请输入你的管理员密码以确认删除 " + target + ":");
+      const pwd = prompt("请输入你的管理员密码以确认:");
       if (pwd === null) return;
       const me = KardsAccount.getCurrentAccount();
       if (!me || (await KardsAccount.sha256(pwd)) !== me.pwdHash) {
-        alert("密码错误, 已取消删除");
+        alert("密码错误");
         return;
       }
       KardsAccount.deleteAccount(target);
@@ -192,26 +261,81 @@ function renderUserTable() {
   });
 }
 
+(async function init() {
+  await KardsAccount.ensureSeed();
+  const cur = KardsAccount.getCurrentAccount();
+  KardsAccount.initPageNav("settings");
+
+  if (!cur) {
+    $("#loginRequired").style.display = "";
+    return;
+  }
+  $("#settingsContent").style.display = "";
+  $("#displayName").textContent = cur.username;
+  $("#roleTag").textContent = cur.isAdmin ? "管理员" : "用户";
+  $("#avatarLetter").textContent = cur.username.charAt(0).toUpperCase();
+
+  const s = KardsAccount.loadSettings();
+  const currentTheme = s.theme || "default";
+  const currentNav = s.navMode || "topbar";
+
+  document.querySelectorAll("[data-theme]").forEach(c => {
+    c.classList.toggle("active", c.dataset.theme === currentTheme);
+  });
+  document.querySelectorAll("[data-nav]").forEach(c => {
+    c.classList.toggle("active", c.dataset.nav === currentNav);
+  });
+
+  $("#apiBase").value = s.apiBase || KardsAccount.DEFAULT_API;
+  $("#diyApiBase").value = s.diyApiBase || KardsAccount.DEFAULT_DIY_API;
+  renderUserTable();
+})();
+
+document.querySelectorAll("[data-theme]").forEach(card => {
+  card.addEventListener("click", () => {
+    const theme = card.dataset.theme;
+    if (!theme) return;
+    document.querySelectorAll("[data-theme]").forEach(c => c.classList.remove("active"));
+    card.classList.add("active");
+    if (!theme || theme === "default") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", theme);
+    const cur = KardsAccount.loadSettings();
+    KardsAccount.saveSettings({ ...cur, theme });
+  });
+});
+
+document.querySelectorAll("[data-nav]").forEach(card => {
+  card.addEventListener("click", () => {
+    const nav = card.dataset.nav;
+    if (!nav) return;
+    document.querySelectorAll("[data-nav]").forEach(c => c.classList.remove("active"));
+    card.classList.add("active");
+    if (nav === "sidebar") document.body.setAttribute("data-nav", "sidebar");
+    else document.body.removeAttribute("data-nav");
+    const cur = KardsAccount.loadSettings();
+    KardsAccount.saveSettings({ ...cur, navMode: nav });
+  });
+});
+
 $("#btnSaveApi").addEventListener("click", () => {
   const v = $("#apiBase").value.trim();
   if (!/^https?:\/\//.test(v)) { $("#apiMsg").className = "msg err"; $("#apiMsg").textContent = "请输入合法的 http(s):// 地址"; return; }
-  KardsAccount.saveSettings({ apiBase: v.replace(/\/+$/, "") });
-  $("#apiMsg").className = "msg ok";
-  $("#apiMsg").textContent = "已保存, 刷新其他页面后将使用新地址";
+  const cur = KardsAccount.loadSettings();
+  KardsAccount.saveSettings({ ...cur, apiBase: v.replace(/\/+$/, "") });
+  $("#apiMsg").className = "msg ok"; $("#apiMsg").textContent = "已保存";
 });
 $("#btnResetApi").addEventListener("click", () => {
-  KardsAccount.saveSettings({ apiBase: KardsAccount.DEFAULT_API });
+  const cur = KardsAccount.loadSettings();
+  KardsAccount.saveSettings({ ...cur, apiBase: KardsAccount.DEFAULT_API });
   $("#apiBase").value = KardsAccount.DEFAULT_API;
   $("#apiMsg").className = "msg ok"; $("#apiMsg").textContent = "已恢复默认";
 });
-
 $("#btnSaveDiyApi").addEventListener("click", () => {
   const v = $("#diyApiBase").value.trim();
   if (!/^https?:\/\//.test(v)) { $("#diyApiMsg").className = "msg err"; $("#diyApiMsg").textContent = "请输入合法的 http(s):// 地址"; return; }
   const cur = KardsAccount.loadSettings();
   KardsAccount.saveSettings({ ...cur, diyApiBase: v.replace(/\/+$/, "") });
-  $("#diyApiMsg").className = "msg ok";
-  $("#diyApiMsg").textContent = "已保存, 限定寻访页面将使用新地址";
+  $("#diyApiMsg").className = "msg ok"; $("#diyApiMsg").textContent = "已保存";
 });
 $("#btnResetDiyApi").addEventListener("click", () => {
   const cur = KardsAccount.loadSettings();
@@ -234,22 +358,11 @@ $("#btnChangePwd").addEventListener("click", async () => {
   }
 });
 
-(async function init() {
-  await KardsAccount.ensureSeed();
-  const cur = KardsAccount.getCurrentAccount();
-  refreshTopbar();
-  if (!cur || !cur.isAdmin) {
-    $("#perm").style.display = "";
-    return;
-  }
-  $("#content").style.display = "";
-  const s = KardsAccount.loadSettings();
-  $("#apiBase").value = s.apiBase;
-  $("#diyApiBase").value = s.diyApiBase || KardsAccount.DEFAULT_DIY_API;
-  renderUserTable();
-})();
+$("#btnLogout").addEventListener("click", () => {
+  if (!confirm("确认退出登录?")) return;
+  KardsAccount.logout();
+  location.href = "account.html";
+});
 </script>
 </body>
 </html>
-
-

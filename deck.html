@@ -1,74 +1,57 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <title>KARDS 卡组</title>
 <link rel="icon" href="data:,">
+<link rel="stylesheet" href="theme.css">
 <style>
-  :root {
-    --panel-bg: rgba(20, 22, 26, 0.92);
-    --btn-bg: linear-gradient(#2c2c30, #1a1a1c);
-    --btn-border: #4a4a50;
-    --text: #e6e6e6;
-    --accent: #d6a26a;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
-  body {
-    font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
-    color: var(--text);
-    background: #0c0c0e url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.9'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>");
-    min-height: 100vh;
-    display: flex; align-items: center; justify-content: center;
-    padding: 40px 20px;
-  }
+  .page-main.centered { display: flex; align-items: center; justify-content: center; }
   .wrap {
     width: 1300px; max-width: 100%;
     display: grid; grid-template-columns: 460px 1fr; gap: 60px;
     align-items: start;
   }
   .left { display: flex; flex-direction: column; align-items: center; gap: 30px; padding-top: 40px; }
-  .label { font-size: 56px; letter-spacing: 4px; color: #fff; }
-  .input {
+  .label { font-size: 56px; letter-spacing: 4px; color: var(--text-bright); }
+  .deck-input {
     width: 100%; height: 70px; padding: 0 14px;
-    background: transparent; color: #f0f0f0;
-    border: 2px solid #2a2a2e; border-radius: 4px;
-    font-size: 18px;
-    text-align: center;
+    background: transparent; color: var(--text-bright);
+    border: 2px solid var(--input-border); border-radius: 4px;
+    font-size: 18px; text-align: center;
   }
-  .input:focus { outline: none; border-color: var(--accent); }
-  .btn {
-    background: transparent; border: none; color: #f0f0f0;
+  .deck-input:focus { outline: none; border-color: var(--accent); }
+  .draw-btn {
+    background: transparent; border: none; color: var(--text-bright);
     font-size: 44px; letter-spacing: 8px; cursor: pointer;
     padding: 10px 30px; transition: color .15s;
   }
-  .btn:hover { color: var(--accent); }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .draw-btn:hover { color: var(--accent); }
+  .draw-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .right {
     display: flex; flex-direction: column; align-items: center; gap: 22px;
     padding: 30px 20px;
   }
   .deck-info {
-    color: #cfcfcf; font-size: 16px; letter-spacing: 2px;
+    color: var(--text); font-size: 16px; letter-spacing: 2px;
     min-height: 24px; text-align: center;
   }
   .deck-info b { color: var(--accent); margin: 0 4px; }
   .img-box {
     width: 100%; min-height: 480px;
-    background: #16161a; border: 1px solid #2a2a2e;
+    background: var(--input-bg); border: 1px solid var(--input-border);
     border-radius: 6px; display: flex; align-items: center; justify-content: center;
     overflow: hidden; padding: 10px;
   }
   .img-box img { max-width: 100%; max-height: 70vh; object-fit: contain; display: block; }
-  .img-box .placeholder { color: #555; font-size: 14px; letter-spacing: 4px; }
+  .img-box .placeholder { color: var(--slot-text); font-size: 14px; letter-spacing: 4px; }
   .download {
     background: var(--btn-bg);
     border: 1px solid var(--btn-border);
-    color: #e6e6e6;
+    color: var(--text);
     padding: 10px 36px;
     font-size: 18px; letter-spacing: 6px; cursor: pointer;
-    border-radius: 4px;
-    transition: all .15s;
+    border-radius: 4px; transition: all .15s;
   }
   .download:hover:not(:disabled) {
     background: linear-gradient(#3a3a3f, #1f1f22);
@@ -83,35 +66,44 @@
 </head>
 <body>
 
-<div class="side-nav" style="position:fixed;top:0;left:0;bottom:0;width:110px;background:rgba(15,15,18,0.6);border-right:1px solid #1f1f22;display:flex;flex-direction:column;padding:30px 10px;gap:14px;">
-  <a class="slot" href="deck.html" style="height:90px;border:1px dashed #555;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#777;font-size:14px;letter-spacing:4px;text-decoration:none;transition:all .15s;">卡 组</a>
-  <a class="slot" href="recruit.html" style="height:90px;border:1px dashed #555;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#777;font-size:14px;letter-spacing:4px;text-decoration:none;transition:all .15s;">公开招募</a>
-  <a class="slot" href="diy.html" style="height:90px;border:1px dashed #555;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#777;font-size:14px;letter-spacing:4px;text-decoration:none;transition:all .15s;">限定寻访</a>
-  <a class="slot admin-only" href="settings.html" style="height:90px;border:1px dashed #555;border-radius:4px;display:none;align-items:center;justify-content:center;color:#777;font-size:14px;letter-spacing:4px;text-decoration:none;transition:all .15s">管 理</a>
-  <a class="slot" href="search.html" title="搜索" style="height:90px;border:1px dashed #555;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#777;font-size:14px;letter-spacing:4px;text-decoration:none;transition:all .15s;">搜 索</a>
+<div class="side-nav">
+  <a class="slot" href="deck.html" data-page="deck">卡 组</a>
+  <a class="slot" href="recruit.html" data-page="recruit">公开招募</a>
+  <a class="slot" href="diy.html" data-page="diy">限定寻访</a>
+  <a class="slot" href="search.html" data-page="search">搜 索</a>
+  <a class="slot" href="settings.html" data-page="settings">设 置</a>
 </div>
-<div class="topbar" style="position:fixed;top:0;right:0;left:110px;height:48px;display:flex;align-items:center;justify-content:flex-end;padding:0 22px;background:rgba(15,15,18,0.7);border-bottom:1px solid #1f1f22;z-index:50;">
-  <a href="recruit.html" style="color:#aaa;text-decoration:none;margin-left:18px;font-size:14px;letter-spacing:2px;padding:6px 10px;border-radius:4px;">公开招募</a>
-  <a href="diy.html" style="color:#aaa;text-decoration:none;margin-left:18px;font-size:14px;letter-spacing:2px;padding:6px 10px;border-radius:4px;">限定寻访</a>
-  <a href="account.html" style="color:#aaa;text-decoration:none;margin-left:18px;font-size:14px;letter-spacing:2px;padding:6px 10px;border-radius:4px;">账 号</a>
-  <span id="who" style="color:#cfcfcf;margin-left:18px;font-size:14px"></span>
-  <a id="btnLogout" href="javascript:void(0)" style="color:#aaa;text-decoration:none;margin-left:18px;font-size:14px;letter-spacing:2px;padding:6px 10px;border-radius:4px;display:none">退出</a>
-  <a class="icon-btn" href="settings.html" title="设置" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px dashed #555;border-radius:4px;color:#777;font-size:12px;margin-left:14px;text-decoration:none">SET</a>
-</div>
-<div class="wrap" style="margin-left:110px;margin-top:80px;">
-  <div class="left">
-    <div class="label">请输入卡组码</div>
-    <input class="input" id="deckInput" type="text" placeholder="例如 %%15|...;...;..." />
-    <button class="btn" id="btnDraw">生 成</button>
-    <div class="err" id="err"></div>
-  </div>
 
-  <div class="right">
-    <div class="deck-info" id="info">尚未生成</div>
-    <div class="img-box" id="imgBox">
-      <div class="placeholder">卡组图将在此处显示</div>
+<div class="topbar">
+  <div class="topbar-left">
+    <nav class="topbar-nav">
+      <a href="deck.html" data-page="deck">卡组</a>
+      <a href="recruit.html" data-page="recruit">公开招募</a>
+      <a href="diy.html" data-page="diy">限定寻访</a>
+      <a href="search.html" data-page="search">搜索</a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <span id="who" class="topbar-name"></span>
+    <a class="settings-btn" href="settings.html" title="设置">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+    </a>
+  </div>
+</div>
+
+<div class="page-main centered">
+  <div class="wrap">
+    <div class="left">
+      <div class="label">请输入卡组码</div>
+      <input class="deck-input" id="deckInput" type="text" placeholder="例如 %%15|...;...;..." />
+      <button class="draw-btn" id="btnDraw">生 成</button>
+      <div class="err" id="err"></div>
     </div>
-    <button class="download" id="btnDownload" disabled>下 载</button>
+    <div class="right">
+      <div class="deck-info" id="info">尚未生成</div>
+      <div class="img-box" id="imgBox"><div class="placeholder">卡组图将在此处显示</div></div>
+      <button class="download" id="btnDownload" disabled>下 载</button>
+    </div>
   </div>
 </div>
 
@@ -119,16 +111,12 @@
 <script>
 let API_BASE = KardsAccount.DEFAULT_API;
 const $ = (s) => document.querySelector(s);
+
 (async function(){
-  if (window.KardsAccount) {
-    await KardsAccount.ensureSeed();
-    API_BASE = KardsAccount.loadSettings().apiBase;
-    const cur = KardsAccount.getCurrentAccount();
-    if (cur) { const who = document.getElementById("who"); if (who) who.textContent = cur.email + (cur.isAdmin ? " (管理员)" : ""); const out = document.getElementById("btnLogout"); if (out) out.style.display = ""; }
-    document.querySelectorAll(".admin-only").forEach(n => { n.style.display = (cur && cur.isAdmin) ? "flex" : "none"; });
-  }
+  await KardsAccount.ensureSeed();
+  KardsAccount.initPageNav("deck");
+  API_BASE = KardsAccount.loadSettings().apiBase;
 })();
-document.getElementById("btnLogout").addEventListener("click", () => { KardsAccount.logout(); location.reload(); });
 
 const input = $("#deckInput");
 const btnDraw = $("#btnDraw");
@@ -136,88 +124,44 @@ const btnDl = $("#btnDownload");
 const info = $("#info");
 const imgBox = $("#imgBox");
 const errEl = $("#err");
-
 let currentDataUrl = "";
 let currentFileName = "deck.jpg";
 
 function setErr(msg) { errEl.textContent = msg || ""; }
 
-function resetView() {
-  currentDataUrl = "";
-  btnDl.disabled = true;
-  imgBox.innerHTML = '<div class="placeholder">卡组图将在此处显示</div>';
-  info.textContent = "尚未生成";
-}
-
 async function drawDeck() {
   const code = input.value.trim();
   if (!code) { setErr("请输入卡组码"); return; }
-  setErr("");
-  btnDraw.disabled = true;
-  btnDl.disabled = true;
-  info.textContent = "生成中…";
+  setErr(""); btnDraw.disabled = true; btnDl.disabled = true;
+  info.textContent = "生成中...";
   try {
-    const resp = await fetch(API_BASE + "/api/kards/draw_deck", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deck_code: code })
-    });
+    const resp = await fetch(API_BASE + "/api/kards/draw_deck", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deck_code: code }) });
     const data = await resp.json();
-    if (data.status !== "success" || !data.data) {
-      setErr(data.message || "生成失败");
-      info.textContent = "生成失败";
-      imgBox.innerHTML = '<div class="placeholder">卡组图将在此处显示</div>';
-      return;
-    }
+    if (data.status !== "success" || !data.data) { setErr(data.message || "生成失败"); info.textContent = "生成失败"; imgBox.innerHTML = '<div class="placeholder">卡组图将在此处显示</div>'; return; }
     const d = data.data;
     currentDataUrl = d.image_base64;
     imgBox.innerHTML = "";
     const img = document.createElement("img");
-    img.src = d.image_base64;
-    img.alt = "卡组图";
+    img.src = d.image_base64; img.alt = "卡组图";
     imgBox.appendChild(img);
-    info.innerHTML = `主国 <b>${d.major || "-"}</b> · 次国 <b>${d.minor || "-"}</b> · 卡数 <b>${(parseInt(d.card_count,10) || 0) + 1}</b>`;
-    currentFileName = `deck_${(d.major || "kards").replace(/[^\w\u4e00-\u9fa5-]/g, "_")}.jpg`;
+    info.innerHTML = '主国 <b>' + (d.major || "-") + '</b> · 次国 <b>' + (d.minor || "-") + '</b> · 卡数 <b>' + ((parseInt(d.card_count,10) || 0) + 1) + '</b>';
+    currentFileName = "deck_" + (d.major || "kards").replace(/[^\w\u4e00-\u9fa5-]/g, "_") + ".jpg";
     btnDl.disabled = false;
-  } catch (e) {
-    setErr("网络错误: " + e.message);
-    info.textContent = "生成失败";
-  } finally {
-    btnDraw.disabled = false;
-  }
+  } catch (e) { setErr("网络错误: " + e.message); info.textContent = "生成失败"; }
+  finally { btnDraw.disabled = false; }
 }
 
 function download() {
   if (!currentDataUrl) return;
   const a = document.createElement("a");
-  a.href = currentDataUrl;
-  a.download = currentFileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  a.href = currentDataUrl; a.download = currentFileName;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 
 btnDraw.addEventListener("click", drawDeck);
 input.addEventListener("keydown", e => { if (e.key === "Enter") drawDeck(); });
 btnDl.addEventListener("click", download);
-
-// 默认填入测试码
 input.focus();
-if (location.search.includes("autodraw=1")) setTimeout(drawDeck, 200);
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-

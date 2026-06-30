@@ -4,79 +4,24 @@
 <meta charset="UTF-8">
 <title>KARDS 账号</title>
 <link rel="icon" href="data:,">
+<link rel="stylesheet" href="theme.css">
 <style>
-  :root {
-    --panel-bg: rgba(20, 22, 26, 0.92);
-    --btn-bg: linear-gradient(#2c2c30, #1a1c1c);
-    --btn-border: #4a4a50;
-    --text: #e6e6e6;
-    --accent: #d6a26a;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
-  body {
-    font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
-    color: var(--text);
-    background: #0c0c0e url("data:image/svg+xml;utf8,<svg xmlns=''http://www.w3.org/2000/svg'' width=''200'' height=''200''><filter id=''n''><feTurbulence baseFrequency=''0.9''/><feColorMatrix values=''0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0''/></filter><rect width=''200'' height=''200'' filter=''url(%23n)''/></svg>");
-    min-height: 100vh;
-  }
-  .topbar {
-    position: fixed; top: 0; right: 0; left: 0; height: 56px;
-    display: flex; align-items: center; justify-content: flex-end;
-    padding: 0 22px; background: rgba(15,15,18,0.7);
-    border-bottom: 1px solid #1f1f22; z-index: 50;
-  }
-  .topbar a, .topbar span {
-    color: #aaa; text-decoration: none; margin-left: 18px; font-size: 14px;
-    letter-spacing: 2px; padding: 6px 10px; border-radius: 4px;
-  }
-  .topbar a:hover { color: var(--accent); background: rgba(214,162,106,0.08); }
-  .icon-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 36px; height: 36px; border: 1px dashed #555; border-radius: 4px;
-    color: #777; font-size: 12px; cursor: pointer; margin-left: 14px;
-  }
-  .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
-  .icon-btn.filled { border-style: solid; }
   .wrap {
-    max-width: 560px; margin: 110px auto 40px; padding: 36px 40px;
-    background: var(--panel-bg); border: 1px solid #3a3a40; border-radius: 6px;
+    max-width: 560px; margin: 0 auto; padding: 36px 40px;
   }
-  h2 { font-size: 24px; margin-bottom: 22px; letter-spacing: 4px; color: #fff; }
+  h2 { font-size: 24px; margin-bottom: 22px; letter-spacing: 4px; }
   .field { margin-bottom: 16px; }
-  .field label { display: block; font-size: 13px; color: #aaa; margin-bottom: 6px; letter-spacing: 2px; }
+  .field label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; letter-spacing: 2px; }
   .field .row { display: flex; gap: 8px; }
-  .input {
-    width: 100%; height: 42px; padding: 0 12px;
-    background: #0a0a0c; color: #f0f0f0;
-    border: 1px solid #3a3a40; border-radius: 4px;
-    font-size: 14px; text-align: center;
-  }
-  .input:focus { outline: none; border-color: var(--accent); }
   .input.code { flex: 1; }
   .input[readonly] { color: var(--accent); letter-spacing: 2px; }
-  .btn {
-    height: 42px; padding: 0 16px;
-    background: var(--btn-bg); color: #e6e6e6;
-    border: 1px solid var(--btn-border); border-radius: 4px;
-    font-size: 14px; letter-spacing: 4px; cursor: pointer;
-  }
   .btn.primary {
     width: 100%; height: 46px; margin-top: 6px;
-    background: linear-gradient(#3a2e1a, #1a1410);
-    color: #f0d6a0; border: 1px solid var(--accent);
     font-size: 16px; letter-spacing: 6px;
   }
-  .btn:hover:not(:disabled) { background: linear-gradient(#3a3a3f, #1f1f22); border-color: #6a6a72; }
-  .btn.primary:hover:not(:disabled) { background: linear-gradient(#4a3a20, #2a1f15); }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .err { color: #e57373; font-size: 13px; min-height: 18px; margin-top: 6px; }
-  .ok { color: #8bc34a; font-size: 13px; min-height: 18px; margin-top: 6px; }
-  .info { color: #aaa; font-size: 12px; margin-top: 12px; line-height: 1.6; }
-  .info b { color: var(--accent); }
-  .hint { color: #888; font-size: 12px; margin-top: 4px; }
+  .hint { color: var(--text-dim); font-size: 12px; margin-top: 4px; }
   .checkbox-row { display: flex; gap: 24px; padding: 6px 0; flex-wrap: wrap; }
-  .check-item { display: inline-flex; align-items: center; gap: 6px; color: #cfcfcf; font-size: 14px; cursor: pointer; letter-spacing: 1px; }
+  .check-item { display: inline-flex; align-items: center; gap: 6px; color: var(--text); font-size: 14px; cursor: pointer; letter-spacing: 1px; }
   .check-item input { cursor: pointer; accent-color: var(--accent); width: 16px; height: 16px; }
   .verify-card {
     margin-top: 10px; padding: 10px 12px;
@@ -85,14 +30,10 @@
   .verify-card .label { font-size: 12px; color: var(--accent); letter-spacing: 2px; margin-bottom: 6px; }
   .verify-card .row { display: flex; gap: 8px; }
   .verify-card .input { flex: 1; text-align: left; padding-left: 12px; font-size: 13px; }
-  .verify-card .status { font-size: 12px; color: #888; margin-top: 6px; min-height: 16px; }
+  .verify-card .status { font-size: 12px; color: var(--text-dim); margin-top: 6px; min-height: 16px; }
   .verify-card .status.ok { color: #8bc34a; }
   .verify-card .status.err { color: #e57373; }
   .verify-copy { height: 42px; padding: 0 14px; flex: 0 0 auto; }
-  .section-title {
-    margin: 26px 0 10px; font-size: 14px; color: var(--accent);
-    letter-spacing: 2px; border-top: 1px dashed #2c2c30; padding-top: 18px;
-  }
   .badge {
     display: inline-block; padding: 2px 8px; border-radius: 3px;
     font-size: 12px; letter-spacing: 1px; margin-left: 8px;
@@ -108,79 +49,114 @@
   .modal-bg.open { display: flex; }
   .modal {
     width: 360px; max-width: calc(100% - 32px);
-    background: var(--panel-bg); border: 1px solid #3a3a40; border-radius: 6px;
+    background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 6px;
     padding: 24px 26px;
+    backdrop-filter: blur(var(--blur));
+    -webkit-backdrop-filter: blur(var(--blur));
   }
   .modal h2 { font-size: 18px; margin-bottom: 18px; letter-spacing: 4px; }
   .modal .field { margin-bottom: 12px; }
   .modal .btn.primary { margin-top: 4px; }
   .modal-link { color: var(--accent); cursor: pointer; font-size: 12px; }
   .modal-link:hover { text-decoration: underline; }
+
+  .logged-view .wrap { max-width: 560px; }
+  .not-logged-view .wrap { max-width: 400px; text-align: center; }
+  .not-logged-view h2 { font-size: 28px; }
+  .not-logged-view .btn-group { display: flex; gap: 12px; margin-top: 24px; }
+  .not-logged-view .btn-group .btn { flex: 1; height: 46px; font-size: 16px; letter-spacing: 6px; }
 </style>
 </head>
 <body>
 
+<div class="side-nav">
+  <a class="slot" href="deck.html" data-page="deck">卡 组</a>
+  <a class="slot" href="recruit.html" data-page="recruit">公开招募</a>
+  <a class="slot" href="diy.html" data-page="diy">限定寻访</a>
+  <a class="slot" href="search.html" data-page="search">搜 索</a>
+  <a class="slot" href="settings.html" data-page="settings">设 置</a>
+</div>
+
 <div class="topbar">
-  <a href="deck.html">卡 组</a>
-  <a href="recruit.html">公开招募</a>
-  <a href="diy.html">限定寻访</a>
-  <a id="btnLogin" href="javascript:void(0)">登 录</a>
-  <a id="btnRegister" href="javascript:void(0)">注 册</a>
-  <span id="who" style="color:#cfcfcf"></span>
-  <a id="btnLogout" style="display:none" href="javascript:void(0)">退出</a>
-  <span class="icon-btn" title="设置 (占位)">SET</span>
+  <div class="topbar-left">
+    <nav class="topbar-nav">
+      <a href="deck.html" data-page="deck">卡组</a>
+      <a href="recruit.html" data-page="recruit">公开招募</a>
+      <a href="diy.html" data-page="diy">限定寻访</a>
+      <a href="search.html" data-page="search">搜索</a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <span id="who" class="topbar-name"></span>
+    <a class="settings-btn" href="settings.html" title="设置">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+    </a>
+  </div>
 </div>
 
-<div class="wrap">
-  <h2>账号设置</h2>
-
-  <div class="info" id="acctInfo">加载中...</div>
-
-  <div class="section-title">公开招募 UID / 限定寻访 QQ</div>
-  <div class="info">勾选要绑定的项, 点击 “获取校验码” 后在 QQ 群聊内发送提示的指令, 校验成功后自动绑定到当前账号. UID 与 QQ 绑定使用同一指令前缀 <b>校验kards账号</b>.</div>
-
-  <div class="field">
-    <label>绑定用途 (可多选)</label>
-    <div class="checkbox-row">
-      <label class="check-item"><input type="checkbox" id="chkKards" checked /> 公开招募 UID</label>
-      <label class="check-item"><input type="checkbox" id="chkDiy" checked /> 限定寻访 QQ</label>
+<div class="page-main">
+  <!-- 未登录 -->
+  <div class="not-logged-view" id="notLoggedView" style="display:none">
+    <div class="wrap panel" style="padding:50px 40px">
+      <h2>KARDS</h2>
+      <p style="color:var(--text-dim);margin-top:12px;font-size:14px;letter-spacing:2px">二战卡牌游戏配套站点</p>
+      <div class="btn-group">
+        <button class="btn primary" id="btnOpenLogin">登 录</button>
+        <button class="btn" id="btnOpenRegister">注 册</button>
+      </div>
     </div>
   </div>
-  <button class="btn" id="btnGetBindCode" type="button" style="width:100%">获取校验码</button>
-  <div id="verifyList" style="margin-top:12px"></div>
-  <div class="hint" id="getCodeHint" style="margin-top:8px">点击 “获取校验码” 后, 这里会出现群内要发送的指令. UID 与 QQ 共用同一条指令.</div>
-  <div class="err" id="bindErr"></div>
-  <div class="ok" id="bindOk"></div>
 
-  <div class="section-title">解绑</div>
-  <div class="field">
-    <label>单独解绑公开招募 UID 或限定寻访 QQ (解绑后仍可重新绑定)</label>
-    <div class="row" style="gap:8px">
-      <button class="btn" id="btnUnbindUid" type="button" style="flex:1" disabled>解绑公开招募 UID</button>
-      <button class="btn" id="btnUnbindDiyQQ" type="button" style="flex:1" disabled>解绑限定寻访 QQ</button>
-    </div>
-    <div class="hint" id="unbindHint" style="margin-top:6px">解绑后对应字段会清空, 不会删除账号.</div>
-  </div>
-  <div class="err" id="unbindErr"></div>
-  <div class="ok" id="unbindOk"></div>
+  <!-- 已登录 -->
+  <div class="logged-view" id="loggedView" style="display:none">
+    <div class="wrap panel" style="padding:36px 40px">
+      <h2>账号设置</h2>
 
-  <div class="section-title">邮箱 (可选)</div>
-  <div class="info">当前邮箱: <span id="emailCur">未绑定</span></div>
-  <div class="field" style="margin-top:18px"><label>邮箱地址</label><input class="input" id="emailInput" type="email" placeholder="your@email.com" /></div>
-  <div class="field">
-    <label>邮箱验证码</label>
-    <div class="row">
-      <input class="input code" id="emailCode" type="text" placeholder="6 位数字" maxlength="6" />
-      <button class="btn" id="btnSendEmailCode">发送验证码</button>
+      <div class="info" id="acctInfo">加载中...</div>
+
+      <div class="section-title">公开招募 UID / 限定寻访 QQ</div>
+      <div class="info">勾选要绑定的项, 点击 "获取校验码" 后在 QQ 群聊内发送提示的指令, 校验成功后自动绑定到当前账号.</div>
+
+      <div class="field">
+        <label>绑定用途 (可多选)</label>
+        <div class="checkbox-row">
+          <label class="check-item"><input type="checkbox" id="chkKards" checked /> 公开招募 UID</label>
+          <label class="check-item"><input type="checkbox" id="chkDiy" checked /> 限定寻访 QQ</label>
+        </div>
+      </div>
+      <button class="btn" id="btnGetBindCode" type="button" style="width:100%">获取校验码</button>
+      <div id="verifyList" style="margin-top:12px"></div>
+      <div class="hint" id="getCodeHint" style="margin-top:8px">点击 "获取校验码" 后, 这里会出现群内要发送的指令.</div>
+      <div class="err" id="bindErr"></div>
+      <div class="ok" id="bindOk"></div>
+
+      <div class="section-title">解绑</div>
+      <div class="field">
+        <div class="row" style="gap:8px">
+          <button class="btn" id="btnUnbindUid" type="button" style="flex:1" disabled>解绑公开招募 UID</button>
+          <button class="btn" id="btnUnbindDiyQQ" type="button" style="flex:1" disabled>解绑限定寻访 QQ</button>
+        </div>
+      </div>
+      <div class="err" id="unbindErr"></div>
+      <div class="ok" id="unbindOk"></div>
+
+      <div class="section-title">邮箱 (可选)</div>
+      <div class="info">当前邮箱: <span id="emailCur">未绑定</span></div>
+      <div class="field" style="margin-top:18px"><label>邮箱地址</label><input class="input" id="emailInput" type="email" placeholder="your@email.com" /></div>
+      <div class="field">
+        <label>邮箱验证码</label>
+        <div class="row">
+          <input class="input code" id="emailCode" type="text" placeholder="6 位数字" maxlength="6" />
+          <button class="btn" id="btnSendEmailCode">发送验证码</button>
+        </div>
+      </div>
+      <button class="btn primary" id="btnBindEmail">绑定邮箱</button>
+      <button class="btn" id="btnUnbindEmail" style="margin-top:8px;width:100%">解绑邮箱</button>
+      <div class="err" id="emailErr"></div>
+      <div class="ok" id="emailOk"></div>
     </div>
-    <div class="hint" id="emailHint">SMTP 未启用时验证码会直接弹窗显示; 启用后需查收邮件.</div>
   </div>
-  <button class="btn primary" id="btnBindEmail">绑定邮箱</button>
-  <button class="btn" id="btnUnbindEmail" style="margin-top:8px;width:100%">解绑邮箱</button>
-  <div class="err" id="emailErr"></div>
-  <div class="ok" id="emailOk"></div>
 </div>
-
 
 <!-- 登录弹窗 -->
 <div class="modal-bg" id="loginModal">
@@ -207,6 +183,7 @@
     <div class="info" style="margin-top:14px">已有账号? <span class="modal-link" id="linkToLogin">前往登录</span></div>
   </div>
 </div>
+
 <script src="account.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
@@ -219,27 +196,16 @@ function clearMsgs() { $$(".err, .ok").forEach(e => e.textContent = ""); }
 function refreshTopbar() {
   const cur = KardsAccount.getCurrentAccount();
   $("#who").textContent = cur ? cur.username + (cur.isAdmin ? " (管理员)" : "") : "未登录";
-  $("#btnLogout").style.display = cur ? "" : "none";
-  $("#btnLogin").style.display = cur ? "none" : "";
-  $("#btnRegister").style.display = cur ? "none" : "";
 }
 
 function refreshAcctInfo() {
   const cur = KardsAccount.getCurrentAccount();
-  if (!cur) {
-    $("#acctInfo").innerHTML = '<span style="color:#e57373">未登录</span> · <span class="modal-link" id="goLogin">点此登录</span>';
-    const goLogin = $("#goLogin");
-    if (goLogin && (!goLogin._handlers || !goLogin._handlers.click)) {
-      goLogin.addEventListener("click", openLoginModal);
-    }
-    return;
-  }
-  const uidPart = cur.uid ? "公开招募 UID <b>" + cur.uid + "</b>" : "<span style=\"color:#e57373\">公开招募 UID 未绑定</span>";
-  const diyPart = cur.diyQQ ? "限定寻访 QQ <b>" + cur.diyQQ + "</b>" : "<span style=\"color:#e57373\">限定寻访 QQ 未绑定</span>";
+  if (!cur) return;
+  const uidPart = cur.uid ? "公开招募 UID <b>" + cur.uid + "</b>" : '<span style="color:#e57373">公开招募 UID 未绑定</span>';
+  const diyPart = cur.diyQQ ? "限定寻访 QQ <b>" + cur.diyQQ + "</b>" : '<span style="color:#e57373">限定寻访 QQ 未绑定</span>';
   $("#acctInfo").innerHTML = "账号 <b>" + cur.username + "</b> 当前状态: " + uidPart + " / " + diyPart;
   $("#btnUnbindUid").disabled = !cur.uid;
   $("#btnUnbindDiyQQ").disabled = !cur.diyQQ;
-  // 登录后恢复所有操作按钮
   $("#btnGetBindCode").disabled = false;
   $("#btnBindEmail").disabled = false;
   $("#btnSendEmailCode").disabled = false;
@@ -259,36 +225,29 @@ function refreshEmailPane() {
   }
 }
 
+function showView(view) {
+  if (view === "logged") {
+    $("#notLoggedView").style.display = "none";
+    $("#loggedView").style.display = "";
+  } else {
+    $("#notLoggedView").style.display = "";
+    $("#loggedView").style.display = "none";
+  }
+}
 
-// ===== 登录 / 注册 弹窗 =====
-function openLoginModal() {
-  $("#loginErr").textContent = "";
-  $("#loginPwd").value = "";
-  $("#loginModal").classList.add("open");
-  setTimeout(() => $("#loginId").focus(), 50);
-}
-function openRegisterModal() {
-  $("#regErr").textContent = "";
-  $("#regOk").textContent = "";
-  $("#regPwd").value = "";
-  $("#regPwd2").value = "";
-  $("#registerModal").classList.add("open");
-  setTimeout(() => $("#regUsername").focus(), 50);
-}
+// 弹窗
+function openLoginModal() { $("#loginErr").textContent = ""; $("#loginPwd").value = ""; $("#loginModal").classList.add("open"); setTimeout(() => $("#loginId").focus(), 50); }
+function openRegisterModal() { $("#regErr").textContent = ""; $("#regOk").textContent = ""; $("#regPwd").value = ""; $("#regPwd2").value = ""; $("#registerModal").classList.add("open"); setTimeout(() => $("#regUsername").focus(), 50); }
 function closeLoginModal() { $("#loginModal").classList.remove("open"); }
 function closeRegisterModal() { $("#registerModal").classList.remove("open"); }
 
-$("#btnLogin").addEventListener("click", openLoginModal);
-$("#btnRegister").addEventListener("click", openRegisterModal);
+$("#btnOpenLogin").addEventListener("click", openLoginModal);
+$("#btnOpenRegister").addEventListener("click", openRegisterModal);
 $("#linkToRegister").addEventListener("click", () => { closeLoginModal(); openRegisterModal(); });
 $("#linkToLogin").addEventListener("click", () => { closeRegisterModal(); openLoginModal(); });
-// 点击遮罩关闭
 $("#loginModal").addEventListener("click", (e) => { if (e.target.id === "loginModal") closeLoginModal(); });
 $("#registerModal").addEventListener("click", (e) => { if (e.target.id === "registerModal") closeRegisterModal(); });
-// ESC 关闭
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") { closeLoginModal(); closeRegisterModal(); }
-});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeLoginModal(); closeRegisterModal(); } });
 
 $("#btnDoLogin").addEventListener("click", async () => {
   const id = $("#loginId").value.trim();
@@ -296,16 +255,11 @@ $("#btnDoLogin").addEventListener("click", async () => {
   $("#loginErr").textContent = "";
   if (!id || !pwd) { $("#loginErr").textContent = "请输入账号和密码"; return; }
   try {
-    const acc = await KardsAccount.login({ id, pwd });
+    await KardsAccount.login({ id, pwd });
     closeLoginModal();
-    refreshTopbar();
-    refreshAcctInfo();
-    refreshEmailPane();
-  } catch (e) {
-    $("#loginErr").textContent = e.message;
-  }
+    location.reload();
+  } catch (e) { $("#loginErr").textContent = e.message; }
 });
-// 在密码框按 Enter 直接登录
 $("#loginPwd").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btnDoLogin").click(); });
 $("#loginId").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#loginPwd").focus(); });
 
@@ -321,46 +275,27 @@ $("#btnDoRegister").addEventListener("click", async () => {
     $("#regOk").textContent = "注册成功, 正在登录...";
     await KardsAccount.login({ id: username, pwd });
     closeRegisterModal();
-    refreshTopbar();
-    refreshAcctInfo();
-    refreshEmailPane();
-  } catch (e) {
-    $("#regErr").textContent = e.message;
-  }
+    location.reload();
+  } catch (e) { $("#regErr").textContent = e.message; }
 });
 $("#regPwd2").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btnDoRegister").click(); });
-$("#btnLogout").addEventListener("click", () => {
-  KardsAccount.logout();
-  refreshTopbar();
-  refreshAcctInfo();
-  refreshEmailPane();
-  alert("已退出登录");
-});
 
-// ===== 绑定 (校验指令) =====
+// 绑定
 function _setBindCooldown(btn) {
   let left = 60;
   const orig = btn.textContent;
   btn.disabled = true;
-  const timer = setInterval(() => {
-    left -= 1;
-    btn.textContent = "等待校验 (" + left + "s)";
-    if (left <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = orig; }
-  }, 1000);
+  const timer = setInterval(() => { left -= 1; btn.textContent = "等待校验 (" + left + "s)"; if (left <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = orig; } }, 1000);
 }
-
-function _formatCmd(token) {
-  return "校验kards账号" + token;
-}
+function _formatCmd(token) { return "校验kards账号" + token; }
 
 const BIND_PURPOSE_META = {
   kards_token_bind: { label: "公开招募 UID", bindFn: "bindUid" },
-  diy_token_bind:   { label: "限定寻访 QQ", bindFn: "bindDiyQQ" }
+  diy_token_bind: { label: "限定寻访 QQ", bindFn: "bindDiyQQ" }
 };
 
 function _readCheckedPurposes() {
-  const order = ["kards_token_bind", "diy_token_bind"];
-  return order.filter(p => {
+  return ["kards_token_bind", "diy_token_bind"].filter(p => {
     if (p === "kards_token_bind") return $("#chkKards").checked;
     if (p === "diy_token_bind") return $("#chkDiy").checked;
     return false;
@@ -372,127 +307,65 @@ function _renderUnifiedCard(token, purposes) {
   const card = document.createElement("div");
   card.className = "verify-card";
   const cmd = _formatCmd(token);
-  card.innerHTML =
-    '<div class="label">在群内发送 (绑定: ' + labels + ')</div>' +
-    '<div class="row">' +
-      '<input class="input" type="text" readonly value="' + cmd + '" />' +
-      '<button class="btn verify-copy" type="button">点我复制指令</button>' +
-    '</div>' +
-    '<div class="status">等待发送...</div>';
+  card.innerHTML = '<div class="label">在群内发送 (绑定: ' + labels + ')</div><div class="row"><input class="input" type="text" readonly value="' + cmd + '" /><button class="btn verify-copy" type="button">点我复制指令</button></div><div class="status">等待发送...</div>';
   const input = card.querySelector("input");
   const copyBtn = card.querySelector("button");
   copyBtn.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(input.value);
-      const orig = copyBtn.textContent;
-      copyBtn.textContent = "已复制";
-      setTimeout(() => { copyBtn.textContent = orig; }, 1200);
-    } catch (e) {
-      input.select(); input.setSelectionRange(0, 999);
-      copyBtn.textContent = "请按 Ctrl+C";
-      setTimeout(() => { copyBtn.textContent = "点我复制指令"; }, 1500);
-    }
+    try { await navigator.clipboard.writeText(input.value); copyBtn.textContent = "已复制"; setTimeout(() => { copyBtn.textContent = "点我复制指令"; }, 1200); }
+    catch (e) { input.select(); input.setSelectionRange(0, 999); copyBtn.textContent = "请按 Ctrl+C"; setTimeout(() => { copyBtn.textContent = "点我复制指令"; }, 1500); }
   });
   $("#verifyList").appendChild(card);
   return card;
 }
 
-function _setCardStatus(card, text, cls) {
-  const el = card.querySelector(".status");
-  el.textContent = text;
-  el.className = "status" + (cls ? " " + cls : "");
-}
+function _setCardStatus(card, text, cls) { const el = card.querySelector(".status"); el.textContent = text; el.className = "status" + (cls ? " " + cls : ""); }
 
 function _doGetVerify() {
   clearMsgs();
   const cur = KardsAccount.getCurrentAccount();
-  if (!cur) {
-    showError($("#bindErr"), "请先登录");
-    return;
-  }
+  if (!cur) { showError($("#bindErr"), "请先登录"); return; }
   const purposes = _readCheckedPurposes();
-  if (purposes.length === 0) {
-    $("#getCodeHint").textContent = "请至少勾选一个绑定用途";
-    return;
-  }
+  if (purposes.length === 0) { $("#getCodeHint").textContent = "请至少勾选一个绑定用途"; return; }
   $("#verifyList").innerHTML = "";
   const btn = $("#btnGetBindCode");
   _setBindCooldown(btn);
   const token = KardsAccount.generateVerifyToken();
-  for (const purpose of purposes) {
-    KardsAccount.preallocVerifyToken(purpose, token);
-  }
+  for (const purpose of purposes) KardsAccount.preallocVerifyToken(purpose, token);
   const card = _renderUnifiedCard(token, purposes);
   for (const purpose of purposes) {
     const meta = BIND_PURPOSE_META[purpose];
     KardsAccount.pollVerifyToken(purpose, token, {
-      onFound: (item) => {
-        try {
-          KardsAccount[meta.bindFn](item.qq);
-          _setCardStatus(card, meta.label + " 绑定成功: " + item.qq, "ok");
-          refreshAcctInfo();
-        } catch (e) {
-          _setCardStatus(card, "绑定失败: " + e.message, "err");
-        }
-      },
-      onTimeout: (msg) => {
-        _setCardStatus(card, msg + ", 请重新获取校验码", "err");
-      }
+      onFound: (item) => { try { KardsAccount[meta.bindFn](item.qq); _setCardStatus(card, meta.label + " 绑定成功: " + item.qq, "ok"); refreshAcctInfo(); } catch (e) { _setCardStatus(card, "绑定失败: " + e.message, "err"); } },
+      onTimeout: (msg) => { _setCardStatus(card, msg + ", 请重新获取校验码", "err"); }
     });
   }
-  $("#getCodeHint").textContent = "请在 600 秒内在群聊内发送以下指令 (1 条即可, UID+QQ 同时绑定, 由 bot 监听后自动完成)";
+  $("#getCodeHint").textContent = "请在 600 秒内在群聊内发送以下指令";
 }
 
 $("#btnGetBindCode").addEventListener("click", _doGetVerify);
-["chkKards", "chkDiy"].forEach(id => {
-  $("#" + id).addEventListener("change", () => {
-    $("#verifyList").innerHTML = "";
-    $("#getCodeHint").textContent = "点击 “获取校验码” 后, 这里会出现群内要发送的指令. UID 与 QQ 共用同一条指令.";
-  });
-});
+["chkKards", "chkDiy"].forEach(id => { $("#" + id).addEventListener("change", () => { $("#verifyList").innerHTML = ""; $("#getCodeHint").textContent = "点击 "获取校验码" 后, 这里会出现群内要发送的指令."; }); });
 
-// ===== 解绑 =====
 function _doUnbind(which) {
   clearMsgs();
   const cur = KardsAccount.getCurrentAccount();
-  if (!cur) {
-    showError($("#unbindErr"), "请先登录");
-    return;
-  }
-  const meta = which === "uid"
-    ? { label: "公开招募 UID", field: "uid" }
-    : { label: "限定寻访 QQ", field: "diyQQ" };
-  if (!cur[meta.field]) {
-    showError($("#unbindErr"), "当前未绑定 " + meta.label + ", 无需解绑");
-    return;
-  }
-  if (!confirm("确认解绑 " + meta.label + ": " + cur[meta.field] + " ?\n\n解绑后该字段会清空, 你可以重新绑定.")) return;
-  try {
-    KardsAccount[which === "uid" ? "unbindUid" : "unbindDiyQQ"]();
-    showOk($("#unbindOk"), meta.label + " 已解绑");
-    refreshAcctInfo();
-  } catch (e) {
-    showError($("#unbindErr"), e.message);
-  }
+  if (!cur) { showError($("#unbindErr"), "请先登录"); return; }
+  const meta = which === "uid" ? { label: "公开招募 UID", field: "uid" } : { label: "限定寻访 QQ", field: "diyQQ" };
+  if (!cur[meta.field]) { showError($("#unbindErr"), "当前未绑定 " + meta.label); return; }
+  if (!confirm("确认解绑 " + meta.label + ": " + cur[meta.field] + " ?")) return;
+  try { KardsAccount[which === "uid" ? "unbindUid" : "unbindDiyQQ"](); showOk($("#unbindOk"), meta.label + " 已解绑"); refreshAcctInfo(); } catch (e) { showError($("#unbindErr"), e.message); }
 }
 $("#btnUnbindUid").addEventListener("click", () => _doUnbind("uid"));
 $("#btnUnbindDiyQQ").addEventListener("click", () => _doUnbind("diy"));
 
-// ===== 邮箱 =====
 $("#btnSendEmailCode").addEventListener("click", async () => {
   clearMsgs();
   const email = $("#emailInput").value.trim();
   if (!email) { showError($("#emailErr"), "请先填写邮箱"); return; }
   try {
     const r = await KardsAccount.sendCode(email, "bind");
-    if (r && r.devCode) {
-      alert("SMTP 未启用, 当前为开发模式.\n\n收件人: " + email + "\n验证码: " + r.devCode + "\n\n启用 youxiang/youxiang.txt 中 SMTP 后将不再显示.");
-    } else {
-      showOk($("#emailOk"), "验证码已发送, 请查收邮件");
-    }
-  } catch (e) {
-    showError($("#emailErr"), e.message);
-  }
+    if (r && r.devCode) alert("SMTP 未启用, 验证码: " + r.devCode);
+    else showOk($("#emailOk"), "验证码已发送");
+  } catch (e) { showError($("#emailErr"), e.message); }
 });
 $("#btnBindEmail").addEventListener("click", async () => {
   clearMsgs();
@@ -500,47 +373,21 @@ $("#btnBindEmail").addEventListener("click", async () => {
   const code = $("#emailCode").value.trim();
   if (!email) { showError($("#emailErr"), "请填写邮箱"); return; }
   if (!code) { showError($("#emailErr"), "请输入验证码"); return; }
-  try {
-    KardsAccount.bindEmail(email, code);
-    showOk($("#emailOk"), "邮箱绑定成功!");
-    refreshTopbar();
-    refreshEmailPane();
-  } catch (e) {
-    showError($("#emailErr"), e.message);
-  }
+  try { KardsAccount.bindEmail(email, code); showOk($("#emailOk"), "邮箱绑定成功!"); refreshTopbar(); refreshEmailPane(); } catch (e) { showError($("#emailErr"), e.message); }
 });
 $("#btnUnbindEmail").addEventListener("click", () => {
   clearMsgs();
-  try {
-    KardsAccount.unbindEmail();
-    showOk($("#emailOk"), "邮箱已解绑");
-    refreshTopbar();
-    refreshEmailPane();
-  } catch (e) {
-    showError($("#emailErr"), e.message);
-  }
+  try { KardsAccount.unbindEmail(); showOk($("#emailOk"), "邮箱已解绑"); refreshTopbar(); refreshEmailPane(); } catch (e) { showError($("#emailErr"), e.message); }
 });
 
-// ===== 初始化 =====
 (async function init() {
   await KardsAccount.ensureSeed();
   const cur = KardsAccount.getCurrentAccount();
-  refreshTopbar();
-  if (!cur) {
-    // 没有登录态, 显示提示 + 去登录按钮
-    $("#acctInfo").innerHTML = '<span style="color:#e57373">未登录</span> · <span class="modal-link" id="goLogin">点此登录</span>';
-    const goLogin = $("#goLogin");
-    if (goLogin) goLogin.addEventListener("click", openLoginModal);
-    $("#btnGetBindCode").disabled = true;
-    $("#btnBindEmail").disabled = true;
-    $("#btnSendEmailCode").disabled = true;
-    $("#btnUnbindEmail").disabled = true;
-    return;
-  }
-  refreshTopbar();
+  KardsAccount.initPageNav("account");
+  if (!cur) { showView("not"); return; }
+  showView("logged");
   refreshAcctInfo();
   refreshEmailPane();
-  $("#loginId") && $("#loginId").focus && $("#loginId").focus();
 })();
 </script>
 </body>

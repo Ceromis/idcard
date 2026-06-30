@@ -433,6 +433,22 @@
     listAll, deleteAccount,
     loadSettings, saveSettings,
     requestVerifyToken, preallocVerifyToken, pollVerifyToken,
-    DEFAULT_API, DEFAULT_DIY_API
+    DEFAULT_API, DEFAULT_DIY_API,
+    initPageNav: function(pageName) {
+      var s = loadSettings();
+      if (!s.theme || s.theme === "default") document.documentElement.removeAttribute("data-theme");
+      else document.documentElement.setAttribute("data-theme", s.theme);
+      if (s.navMode === "sidebar") document.body.setAttribute("data-nav", "sidebar");
+      else document.body.removeAttribute("data-nav");
+      var cur = getCurrentAccount();
+      var whoEl = document.getElementById("who");
+      if (whoEl) whoEl.textContent = cur ? cur.username + (cur.isAdmin ? " (管理员)" : "") : "未登录";
+      document.querySelectorAll(".topbar-nav a").forEach(function(a) {
+        a.classList.toggle("active", a.dataset.page === pageName);
+      });
+      document.querySelectorAll(".side-nav .slot").forEach(function(a) {
+        a.classList.toggle("active", a.dataset.page === pageName);
+      });
+    }
   };
 })(window);
