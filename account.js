@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 账号模块 (前端 localStorage 版)
  * - key "kards_accounts" : Array<{ username, pwdHash, email?, uid?, diyQQ?, isAdmin, createdAt }>
  *   - username: 必填, 唯一, 登录用
@@ -14,7 +14,7 @@
   const SESS_KEY = "kards_session";
   const SET_KEY = "kards_settings";
   const PENDING_CODE_KEY = "kards_pending_email_code";
-  const DEFAULT_API = "http://110.42.63.235:8080";
+  const DEFAULT_API = "http://192.168.10.100:8080";
   const DEFAULT_DIY_API = "http://192.168.10.100:8090";
 
   // ===== SHA-256 =====
@@ -206,7 +206,7 @@
     if (list.some(a => a.username && a.username.toLowerCase() === username.toLowerCase())) {
       throw new Error("该用户名已被注册");
     }
-    const acc = { username, pwdHash: await sha256(pwd), email: "", uid: "", diyQQ: "", isAdmin: false, createdAt: Date.now() };
+    const acc = { username, pwdHash: await sha256(pwd), email: "", uid: "", diyQQ: "", organization: "", isAdmin: false, createdAt: Date.now() };
     list.push(acc);
     saveAccounts(list);
     return acc;
@@ -313,6 +313,32 @@
     if (i >= 0) { list[i] = cur; saveAccounts(list); }
     return cur;
   }
+  // ===== 组织名称 (招募确认接收时使用) =====
+  function isOrganizationNameTaken(name, exceptUsername) {
+    const target = String(name || "").trim().toLowerCase();
+    if (!target) return false;
+    return loadAccounts().some(a => a.username !== exceptUsername && String(a.organization || "").trim().toLowerCase() === target);
+  }
+  function getOrganization() {
+    const cur = getCurrentAccount();
+    return cur ? (cur.organization || "") : "";
+  }
+  function setOrganization(name) {
+    const cur = getCurrentAccount();
+    if (!cur) throw new Error("请先登录");
+    const normalized = String(name || "").trim();
+    if (!normalized) throw new Error("组织名称不能为空");
+    if (normalized.length > 20) throw new Error("组织名称过长，最多 20 字");
+    if (isOrganizationNameTaken(normalized, cur.username)) {
+      throw new Error("该组织名已被其他用户使用");
+    }
+    cur.organization = normalized;
+    const list = loadAccounts();
+    const i = list.findIndex(a => a.username === cur.username);
+    if (i >= 0) { list[i] = cur; saveAccounts(list); }
+    return cur;
+  }
+
   function listAll() { return loadAccounts(); }
   function deleteAccount(username) {
     const list = loadAccounts().filter(a => a.username !== username);
@@ -401,6 +427,7 @@
       }
       if (typeof a.diyQQ === "undefined") { a.diyQQ = ""; dirty = true; }
       if (typeof a.uid === "undefined") { a.uid = ""; dirty = true; }
+      if (typeof a.organization === "undefined") { a.organization = ""; dirty = true; }
     }
     return dirty;
   }
@@ -417,6 +444,7 @@
         email: "",
         uid: "",
         diyQQ: "",
+        organization: "",
         isAdmin: true,
         createdAt: Date.now()
       });
@@ -430,7 +458,7 @@
   global.KardsAccount = {
     sha256, ensureSeed, sendCode, verifyCode, generateVerifyToken,
     register, login, logout, getCurrentAccount, bindUid, bindDiyQQ, bindEmail, unbindEmail, unbindUid, unbindDiyQQ, getDiyQQ, changePassword,
-    listAll, deleteAccount,
+    listAll, deleteAccount, setOrganization, getOrganization, isOrganizationNameTaken,
     loadSettings, saveSettings,
     requestVerifyToken, preallocVerifyToken, pollVerifyToken,
     DEFAULT_API, DEFAULT_DIY_API,
@@ -452,3 +480,8 @@
     }
   };
 })(window);
+
+
+
+
+

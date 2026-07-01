@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -73,6 +73,41 @@
   }
   .toast.show { opacity: 1; }
   .toast.err { border-color: #e57373; color: #ffb4b4; }
+  /* 招募多状态视图 */
+  .recruit-stage {
+    width: 1100px; max-width: 100%; min-height: 560px;
+    padding: 40px 60px; position: relative;
+    box-shadow: inset 0 0 60px rgba(0,0,0,0.6), 0 0 30px rgba(0,0,0,0.5);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
+  }
+  .recruit-stage .left-art {
+    width: 100%; max-height: 480px; object-fit: contain; border-radius: 4px;
+  }
+  .recruit-stage .right-info {
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .recruit-stage .right-info h2 {
+    font-size: 24px; color: var(--accent); letter-spacing: 4px; margin-bottom: 6px;
+  }
+  .recruit-stage .meta-line {
+    font-size: 16px; color: var(--text); letter-spacing: 1px; line-height: 1.8;
+  }
+  .recruit-stage .meta-line b {
+    color: var(--text-bright); font-weight: 500;
+  }
+  .recruit-stage .recv-desc {
+    color: var(--text-dim); font-size: 14px; line-height: 1.7;
+  }
+  .recruit-stage .bottom-action {
+    display: flex; justify-content: flex-end; margin-top: 18px;
+  }
+  .recruit-stage .bottom-action .recruit-btn {
+    min-width: 180px; height: 48px;
+  }
+  .recruit-stage .org-link {
+    color: var(--accent); cursor: pointer; text-decoration: underline; font-size: 13px;
+    margin-left: 6px;
+  }
   .gate-overlay {
     position: fixed; top: 48px; left: 110px; right: 0; bottom: 0;
     background: rgba(0, 0, 0, 0.45);
@@ -94,7 +129,18 @@
   .gate-box .meta { color: var(--text-dim); font-size: 12px; margin-top: 14px; }
   .gate-box .meta a { color: var(--accent); text-decoration: none; }
 </style>
-</head>
+<script>
+  // 早期应用主题/导航, 避免页面首次渲染时的主题闪烁
+  (function() {
+    try {
+      var s = JSON.parse(localStorage.getItem("kards_settings") || "null");
+      if (s) {
+        if (s.theme && s.theme !== "default") document.documentElement.setAttribute("data-theme", s.theme);
+        if (s.navMode === "sidebar") document.body.setAttribute("data-nav", "sidebar");
+      }
+    } catch (e) {}
+  })();
+</script></head>
 <body>
 
 <div class="side-nav">
@@ -122,8 +168,8 @@
   </div>
 </div>
 
-<div class="page-main" style="display:flex;align-items:center;justify-content:center">
-  <div class="panel panel-main">
+<div class="page-main" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:0">
+  <div class="panel panel-main" id="viewTags">
     <div class="panel-inner">
       <div class="top-row">
         <div class="tags" id="tags">
@@ -155,7 +201,46 @@
       </div>
     </div>
   </div>
+<!-- 招募中 (未完成) -->
+<div class="panel panel-main recruit-stage" id="viewOngoing" style="display:none">
+  <img src="zhaomu.jpg" class="left-art" alt="招募中" />
+  <div class="right-info">
+    <h2>军备处已经按照你的指示进行行动</h2>
+    <div class="meta-line">起始时间：<b id="ongoingStartTime">--</b></div>
+    <div class="meta-line">预计完成时间：<b id="ongoingFinishTime">--</b></div>
+    <div class="meta-line">预计剩余时间：<b id="ongoingRemainTime">--</b></div>
+    <div class="recv-desc">正在等待军备处传回结果…</div>
+  </div>
 </div>
+
+<!-- 可领取 -->
+<div class="panel panel-main recruit-stage" id="viewReady" style="display:none">
+  <img src="zhaomu.jpg" class="left-art" alt="已到货" />
+  <div class="right-info">
+    <h2>军备处已经将目标档案送到你的桌前</h2>
+    <div class="recv-desc">目标已经抵达, 请前往军备处领取本次行动的结果。</div>
+    <div class="bottom-action">
+      <button class="recruit-btn" id="btnReceive">领 取</button>
+    </div>
+  </div>
+</div>
+
+<!-- 确认接收 -->
+<div class="panel panel-main recruit-stage" id="viewReceived" style="display:none">
+  <img id="recvCardImg" class="left-art" alt="目标档案" />
+  <div class="right-info">
+    <h2>军备处已经将目标档案送到你的桌前</h2>
+    <div class="meta-line">卡名：<b id="recvCardName">--</b></div>
+    <div class="meta-line">品质：<b id="recvCardRare">--</b></div>
+    <div class="meta-line">国籍：<b id="recvCardCountry">--</b></div>
+    <div class="meta-line">接收组织：<b id="recvCardOrg">--</b><a class="org-link" href="account.html" id="recvOrgLink" style="display:none">前往设置</a></div>
+    <div class="bottom-action">
+      <button class="recruit-btn" id="btnAckReceive">确认接收</button>
+    </div>
+  </div>
+</div></div>
+
+
 
 <div class="gate-overlay" id="gateLogin" style="display:none">
   <div class="gate-box">
@@ -165,14 +250,12 @@
     <input class="input" id="gateLoginPwd" type="password" placeholder="密码" />
     <button id="btnGateLogin">登 录</button>
     <div class="meta">还没有账号? <a href="account.html">前往注册</a></div>
-    <div class="meta"><a href="javascript:void(0)" id="btnDismissLogin" data-dismiss="gateLogin">继续浏览 (不登录)</a></div>
   </div>
 </div>
 <div class="gate-overlay" id="gateBind" style="display:none">
   <div class="gate-box">
     <h2>需先绑定公开招募 UID</h2>
     <div class="meta">将打开账号页面完成绑定, <a href="account.html" id="gateBindGo">前往</a></div>
-    <div class="meta"><a href="javascript:void(0)" id="btnDismissBind" data-dismiss="gateBind">继续浏览 (不绑定)</a></div>
   </div>
 </div>
 
@@ -256,6 +339,7 @@ $$(".tag").forEach(node => {
     }
     updateDuration();
   });
+
 });
 
 $("#btnRefresh").addEventListener("click", async () => {
@@ -282,8 +366,7 @@ $("#btnStart").addEventListener("click", async () => {
     const resp = await apiPost("/kards/start_recruit", { uid: UID, choices });
     if (resp.code === 401) { showToast("请重新登录", true); location.href = "account.html"; return; }
     if (resp.code !== 0) { showToast(resp.msg || "招募失败", true); return; }
-    showToast("招募已开始，预计 " + formatDuration(resp.data.duration) + " 完成");
-    await loadUserInfo();
+    showToast("招募已开始，预计 " + formatDuration(resp.data.duration) + " 完成");    await pollRecruitStatus();
   } catch (e) { showToast("网络错误: " + e.message, true); }
 });
 
@@ -304,30 +387,102 @@ function loadUserInfo() {
   return _loadUserInfoInflight;
 }
 
+function _lockRecruitUI(locked) {
+  const panel = document.querySelector(".panel-main");
+  if (panel) panel.style.opacity = locked ? "0.35" : "";
+  const btns = ["btnRefresh", "btnStart"];
+  for (const id of btns) { const el = document.getElementById(id); if (el) el.disabled = !!locked; }
+  const tags = document.querySelectorAll(".tag");
+  tags.forEach(t => { t.classList.toggle("disabled", !!locked); t.style.pointerEvents = locked ? "none" : ""; });
+}
+// ===== 招募状态机 =====let _pollTimer = null;let _currentView = "tags";const VIEWS = ["viewTags", "viewOngoing", "viewReady", "viewReceived"];function _showView(name) {  for (const v of VIEWS) { const el = document.getElementById(v); if (el) el.style.display = (v === name ? "" : "none"); }  _currentView = name;}function _parseDateTime(s) { if (!s) return null; const t = Date.parse(String(s).replace(" ", "T")); return isNaN(t) ? null : t; }function _enterRecruitState(data) {  if (!data || data.status === "无招募" || !data.status) { _showView("viewTags"); return; }  const startTs = _parseDateTime(data.start_time);  const finishTs = _parseDateTime(data.finish_time);  const now = Date.now();  if (data.status === "招募中") {    if (finishTs && now >= finishTs) {      // 时间到 -> 可领取      _showView("viewReady");    } else {      $("#ongoingStartTime").textContent = data.start_time || "--";      $("#ongoingFinishTime").textContent = data.finish_time || "--";      $("#ongoingRemainTime").textContent = (typeof data.remain_minutes === "number")        ? (data.remain_minutes + " 分钟后完成")        : (data.remain_text || "--");      _showView("viewOngoing");    }    return;  }  if (data.status === "已完成") { _showView("viewReady"); return; }  _showView("viewTags");}async function loadRecruitDetail() {  if (!UID) return null;  const resp = await apiPost("/kards/recruit_detail", { uid: UID });  if (resp.code === 401) { showToast("请重新登录", true); setTimeout(() => location.href = "account.html", 800); return null; }  if (resp.code !== 0) { showToast(resp.msg || "查询招募状态失败", true); return null; }  return resp.data || null;}async function pollRecruitStatus() {  const data = await loadRecruitDetail();  if (!data) return;  _enterRecruitState(data);}async function fetchRecruitResult() {  if (!UID) return null;  const resp = await apiPost("/kards/get_recruit_result", { uid: UID });  if (resp.code === 401) { showToast("请重新登录", true); setTimeout(() => location.href = "account.html", 800); return null; }  if (resp.code !== 0) { showToast(resp.msg || "领取失败", true); return null; }  return resp.data || null;}
+
 async function initGate() {
   await KardsAccount.ensureSeed();
   const s = KardsAccount.loadSettings();
   API_BASE = s.apiBase;
   KardsAccount.initPageNav("recruit");
   const cur = KardsAccount.getCurrentAccount();
-  if (!cur) { document.getElementById("gateLogin").style.display = "flex"; return; }
-  if (!cur.uid) { document.getElementById("gateBind").style.display = "flex"; return; }
+  if (!cur) { document.getElementById("gateLogin").style.display = "flex"; _lockRecruitUI(true); return; }
+  if (!cur.uid) { document.getElementById("gateBind").style.display = "flex"; _lockRecruitUI(true); return; }
   UID = cur.uid;
 
   async function refreshOnVisible() {
     if (document.hidden) return;
     const c = KardsAccount.getCurrentAccount();
     if (!c || !c.uid) return;
-    try { await loadUserInfo(); } catch (e) {}
+    try { await pollRecruitStatus(); } catch (e) {}
   }
   document.addEventListener("visibilitychange", refreshOnVisible);
   window.addEventListener("pageshow", refreshOnVisible);
   window.addEventListener("focus", refreshOnVisible);
+  // 首次进入: 直接拉一次详情, 决定默认进入哪个视图
+  try { await Promise.all([pollRecruitStatus(), loadUserInfo()]); } catch (e) { try { await loadUserInfo(); } catch (_) {} }
+  // 启动 30s 轮询
+  if (_pollTimer) clearInterval(_pollTimer);
+  _pollTimer = setInterval(() => { pollRecruitStatus().catch(() => {}); }, 30000);
 }
 
-document.querySelectorAll("[data-dismiss]").forEach(el => {
-  el.addEventListener("click", () => { const g = document.getElementById(el.getAttribute("data-dismiss")); if (g) g.style.display = "none"; });
+// 领取: 先调 /kards/recruit_detail 看后端是否已有 result_card_id (幂等领取); 没有再调 /kards/get_recruit_result
+function _renderReceivedView(data) {
+  $("#recvCardName").textContent = data.card_name || "--";
+  $("#recvCardRare").textContent = data.rare || "--";
+  $("#recvCardCountry").textContent = data.country || "--";
+  const org = KardsAccount.getOrganization();
+  const orgEl = $("#recvCardOrg");
+  const linkEl = $("#recvOrgLink");
+  if (org) { orgEl.textContent = org; linkEl.style.display = "none"; }
+  else { orgEl.textContent = "未设置"; linkEl.style.display = ""; }
+  if (data.image_base64) {
+    $("#recvCardImg").src = "data:image/png;base64," + data.image_base64;
+  } else {
+    $("#recvCardImg").removeAttribute("src");
+  }
+  _showView("viewReceived");
+}
+$("#btnReceive").addEventListener("click", async () => {
+  const btn = $("#btnReceive");
+  btn.disabled = true;
+  try {
+    // 1. 先拉详情: 若后端已是"已完成"且有 result_card_id, 直接渲染 (避免重复点击 / 刷新后再点时报"无招募")
+    const detail = await loadRecruitDetail();
+    if (detail && detail.status === "已完成" && detail.result_card_id) {
+      _renderReceivedView({
+        card_id: detail.result_card_id,
+        card_name: detail.result_card_name,
+        rare: detail.result_card_rare,
+        country: detail.result_card_country,
+        image_base64: detail.result_card_image,
+      });
+      return;
+    }
+    // 2. 否则正常调领取接口
+    const data = await fetchRecruitResult();
+    if (!data) return;
+    _renderReceivedView(data);
+  } catch (e) {
+    showToast("网络错误: " + e.message, true);
+  } finally {
+    btn.disabled = false;
+  }
 });
+
+// 确认接收: 回到词条面板, 重新拉新词条
+$("#btnAckReceive").addEventListener("click", async () => {
+  const btn = $("#btnAckReceive");
+  btn.disabled = true;
+  try {
+    await loadUserInfo();
+    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    _showView("viewTags");
+    showToast("已确认接收");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+initGate();
+
 document.getElementById("btnGateLogin").addEventListener("click", async () => {
   document.getElementById("gateLoginErr").textContent = "";
   try {
@@ -337,9 +492,49 @@ document.getElementById("btnGateLogin").addEventListener("click", async () => {
   } catch (e) { document.getElementById("gateLoginErr").textContent = e.message; }
 });
 document.getElementById("gateLoginPwd").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("btnGateLogin").click(); });
-document.getElementById("btnGateBind").addEventListener("click", () => { location.href = "account.html"; });
+// (btnGateBind 已移除: HTML 里没有这个 id)
 document.getElementById("gateBindGo").addEventListener("click", () => { location.href = "account.html"; });
-initGate();
+// 实时监测登录/绑定状态: 一旦登录并绑定 UID, 自动解锁 (无需刷新)
+const _gateObserver = setInterval(() => {
+  const loginGate = document.getElementById("gateLogin");
+  const bindGate = document.getElementById("gateBind");
+  const c = KardsAccount.getCurrentAccount();
+  if (!c) {
+    if (loginGate && loginGate.style.display !== "flex") { loginGate.style.display = "flex"; _lockRecruitUI(true); }
+    return;
+  }
+  if (!c.uid) {
+    if (loginGate) loginGate.style.display = "none";
+    if (bindGate && bindGate.style.display !== "flex") { bindGate.style.display = "flex"; _lockRecruitUI(true); }
+    return;
+  }
+  if (loginGate) loginGate.style.display = "none";
+  if (bindGate) bindGate.style.display = "none";
+  _lockRecruitUI(false);
+  UID = c.uid;
+}, 1000);
+window.addEventListener("beforeunload", () => clearInterval(_gateObserver));
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

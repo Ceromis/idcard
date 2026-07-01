@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import os
 import aiosqlite
 import random
@@ -453,32 +453,40 @@ async def filter_cards_by_tags(tags:List[Dict]):
             where_clauses = " AND ".join(conditions)
             # 查询数据库
             sql = f"SELECT * FROM Cards WHERE {where_clauses} ORDER BY RANDOM() LIMIT 1"
-            async with db.execute(sql,params) as cur:
-            # cur = async db.execute(sql,params)
-                result = await cur.fetchone()
-                if not result:
-                    # 判断非特殊tag
-                    non_special_tags = [tag for tag in tags_copy if tag["associate"] != "special"]
-                    if non_special_tags:
-                        deleted = min(non_special_tags,key = lambda x:x["weight"])
-                        deleted_tags[deleted["name"]] = "被划去"
-                        tags_copy.remove(deleted)
-                    else:
-                        break
+            cur = await db.execute(sql,params)
+            result = await cur.fetchone()
+            await cur.close()
+            if not result:
+                # 判断非特殊tag
+                non_special_tags = [tag for tag in tags_copy if tag["associate"] != "special"]
+                if non_special_tags:
+                    # 防御: tag 可能缺少 weight 字段, 用 .get 兜底
+                    deleted = min(non_special_tags,key = lambda x:x.get("weight",0))
+                    deleted_tags[deleted["name"]] = "被划去"
+                    tags_copy.remove(deleted)
                 else:
-                    row = result
                     break
+            else:
+                row = result
+                break
             if random.random() < 0.1 and tags_copy:
                 non_special_tags = [tag for tag in tags_copy if tag["associate"] != "special"]
                 if non_special_tags:
                     punished = non_special_tags[random.randrange(len(non_special_tags))]
                     deleted_tags[punished["name"]] = "被划去"
                     tags_copy.remove(punished)
-        # 如果删除了所有可删除的tag,依据稀有度随机选择
-        if not tags_copy and not row:
-            async with db.execute("SELECT * FROM Cards WHERE Rare = ? ORDER BY RANDOM() LIMIT 1",(selected_rarity,)) as cur:
-                result = await cur.fetchone()
-                row = result
+        # 兜底: 若 row 仍为 None, 依据稀有度随机 (哪怕只剩 special tag 也要走这条)
+        if not row:
+            cur = await db.execute("SELECT * FROM Cards WHERE Rare = ? ORDER BY RANDOM() LIMIT 1",(selected_rarity,))
+            result = await cur.fetchone()
+            await cur.close()
+            row = result
+        # 最终兜底: 选中的稀有度也可能没卡 (DB 里没有对应 Rare), 退化到全库随机, 保证一定能出卡
+        if not row:
+            cur = await db.execute("SELECT * FROM Cards ORDER BY RANDOM() LIMIT 1")
+            result = await cur.fetchone()
+            await cur.close()
+            row = result
 
     return row,deleted_tags
 
@@ -1609,7 +1617,29 @@ async def api_get_recruit_result(request: Request):
         )
         row = await cur.fetchone()
         
-        if not row or row[0] == "已完成":
+        if not row:
+            return JSONResponse({"code": 1, "msg": "当前没有进行中的招募", "data": None})
+        # 幂等领取: 若已是"已完成"且有 result_card_id, 直接返回卡牌详情 (避免前端刷新/重复点击时报错)
+        if row[0] == "已完成":
+            existing_card_id = row[3]
+            if existing_card_id:
+                cur = await db.execute("SELECT CardName, Rare, Country FROM Cards WHERE PicID = ?", (existing_card_id,))
+                card_info = await cur.fetchone()
+                if card_info:
+                    img_path = IMAGE_DIR / f"{existing_card_id}.png"
+                    return JSONResponse({
+                        "code": 0,
+                        "msg": "招募完成",
+                        "data": {
+                            "card_id": existing_card_id,
+                            "card_name": card_info[0],
+                            "rare": card_info[1] or "未知",
+                            "country": card_info[2] or "未知",
+                            "image_base64": image_to_base64(img_path),
+                            "deleted_tags": []
+                        }
+                    })
+            # 已完成但拿不到卡, 视为无可领取招募
             return JSONResponse({"code": 1, "msg": "当前没有进行中的招募", "data": None})
         
         now_ts = int(time.time())
