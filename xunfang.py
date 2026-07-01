@@ -1,4 +1,4 @@
-"""
+﻿"""
 NoneBot v2 plugin: Card Submission & Review System
 Features implemented:
 - Users can submit one 500x702 image per day (anonymous or real). Submissions stored on disk and in SQLite DB.

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,18 @@
     border: 1px solid rgba(214,162,106,0.3);
   }
 </style>
-</head>
+<script>
+  // 早期应用主题/导航, 避免页面首次渲染时的主题闪烁
+  (function() {
+    try {
+      var s = JSON.parse(localStorage.getItem("kards_settings") || "null");
+      if (s) {
+        if (s.theme && s.theme !== "default") document.documentElement.setAttribute("data-theme", s.theme);
+        if (s.navMode === "sidebar") document.body.setAttribute("data-nav", "sidebar");
+      }
+    } catch (e) {}
+  })();
+</script></head>
 <body>
 
 <div class="side-nav">
@@ -174,11 +185,22 @@
         </div>
       </div>
 
-      <div class="section panel">
-        <h2>功能 API 接入</h2>
+      <div class="section panel" id="readonlyApiInfo" style="display:none">
+        <h2>API 接入 (只读)</h2>
+        <p class="info" style="margin-bottom:14px">当前生效的 API 地址, 仅管理员可修改.</p>
         <div class="field">
           <label>公开招募 API 地址</label>
-          <input class="input" id="apiBase" placeholder="http://110.42.63.235:8080" />
+          <div class="input" id="apiBaseRO" style="padding:8px 12px;background:rgba(0,0,0,0.2);border-radius:4px;color:var(--text)"></div>
+        </div>
+        <div class="field">
+          <label>限定寻访 API 地址</label>
+          <div class="input" id="diyApiBaseRO" style="padding:8px 12px;background:rgba(0,0,0,0.2);border-radius:4px;color:var(--text)"></div>
+        </div>
+      </div>
+      <div class="section panel" id="adminApiSection" style="display:none"><h2>功能 API 接入</h2>
+        <div class="field">
+          <label>公开招募 API 地址</label>
+          <input class="input" id="apiBase" placeholder="http://192.168.10.100:8080" />
         </div>
         <div class="row">
           <button class="btn primary" id="btnSaveApi">保 存</button>
@@ -187,8 +209,7 @@
         <div class="msg" id="apiMsg"></div>
       </div>
 
-      <div class="section panel">
-        <h2>限定寻访 API 接入</h2>
+      <div class="section panel" id="adminDiyApiSection" style="display:none"><h2>限定寻访 API 接入</h2>
         <div class="field">
           <label>限定寻访 API 地址</label>
           <input class="input" id="diyApiBase" placeholder="http://192.168.10.100:8090" />
@@ -286,8 +307,26 @@ function renderUserTable() {
     c.classList.toggle("active", c.dataset.nav === currentNav);
   });
 
-  $("#apiBase").value = s.apiBase || KardsAccount.DEFAULT_API;
-  $("#diyApiBase").value = s.diyApiBase || KardsAccount.DEFAULT_DIY_API;
+  // API 地址仅管理员可修改; 非管理员看到只读视图
+  if (cur.isAdmin) {
+    const apiSec = document.getElementById("adminApiSection");
+    if (apiSec) apiSec.style.display = "";
+    const diyApiSec = document.getElementById("adminDiyApiSection");
+    if (diyApiSec) diyApiSec.style.display = "";
+    $("#apiBase").value = s.apiBase || KardsAccount.DEFAULT_API;
+    $("#diyApiBase").value = s.diyApiBase || KardsAccount.DEFAULT_DIY_API;
+  } else {
+    const apiSec = document.getElementById("adminApiSection");
+    if (apiSec) apiSec.style.display = "none";
+    const diyApiSec = document.getElementById("adminDiyApiSection");
+    if (diyApiSec) diyApiSec.style.display = "none";
+    const ro = document.getElementById("readonlyApiInfo");
+    if (ro) ro.style.display = "";
+    const apiRO = document.getElementById("apiBaseRO");
+    const diyApiRO = document.getElementById("diyApiBaseRO");
+    if (apiRO) apiRO.textContent = s.apiBase || KardsAccount.DEFAULT_API;
+    if (diyApiRO) diyApiRO.textContent = s.diyApiBase || KardsAccount.DEFAULT_DIY_API;
+  }
   renderUserTable();
 })();
 
@@ -318,6 +357,8 @@ document.querySelectorAll("[data-nav]").forEach(card => {
 });
 
 $("#btnSaveApi").addEventListener("click", () => {
+  const _me1 = KardsAccount.getCurrentAccount();
+  if (!_me1 || !_me1.isAdmin) { $("#apiMsg").className = "msg err"; $("#apiMsg").textContent = "仅管理员可修改"; return; }
   const v = $("#apiBase").value.trim();
   if (!/^https?:\/\//.test(v)) { $("#apiMsg").className = "msg err"; $("#apiMsg").textContent = "请输入合法的 http(s):// 地址"; return; }
   const cur = KardsAccount.loadSettings();
@@ -325,12 +366,16 @@ $("#btnSaveApi").addEventListener("click", () => {
   $("#apiMsg").className = "msg ok"; $("#apiMsg").textContent = "已保存";
 });
 $("#btnResetApi").addEventListener("click", () => {
+  const _me2 = KardsAccount.getCurrentAccount();
+  if (!_me2 || !_me2.isAdmin) { $("#apiMsg").className = "msg err"; $("#apiMsg").textContent = "仅管理员可修改"; return; }
   const cur = KardsAccount.loadSettings();
   KardsAccount.saveSettings({ ...cur, apiBase: KardsAccount.DEFAULT_API });
   $("#apiBase").value = KardsAccount.DEFAULT_API;
   $("#apiMsg").className = "msg ok"; $("#apiMsg").textContent = "已恢复默认";
 });
 $("#btnSaveDiyApi").addEventListener("click", () => {
+  const _me3 = KardsAccount.getCurrentAccount();
+  if (!_me3 || !_me3.isAdmin) { $("#diyApiMsg").className = "msg err"; $("#diyApiMsg").textContent = "仅管理员可修改"; return; }
   const v = $("#diyApiBase").value.trim();
   if (!/^https?:\/\//.test(v)) { $("#diyApiMsg").className = "msg err"; $("#diyApiMsg").textContent = "请输入合法的 http(s):// 地址"; return; }
   const cur = KardsAccount.loadSettings();
@@ -338,6 +383,8 @@ $("#btnSaveDiyApi").addEventListener("click", () => {
   $("#diyApiMsg").className = "msg ok"; $("#diyApiMsg").textContent = "已保存";
 });
 $("#btnResetDiyApi").addEventListener("click", () => {
+  const _me4 = KardsAccount.getCurrentAccount();
+  if (!_me4 || !_me4.isAdmin) { $("#diyApiMsg").className = "msg err"; $("#diyApiMsg").textContent = "仅管理员可修改"; return; }
   const cur = KardsAccount.loadSettings();
   KardsAccount.saveSettings({ ...cur, diyApiBase: KardsAccount.DEFAULT_DIY_API });
   $("#diyApiBase").value = KardsAccount.DEFAULT_DIY_API;
@@ -366,3 +413,9 @@ $("#btnLogout").addEventListener("click", () => {
 </script>
 </body>
 </html>
+
+
+
+
+
+

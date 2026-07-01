@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 chcp 65001 >nul 2>nul
 setlocal EnableDelayedExpansion
 
@@ -33,6 +33,7 @@ echo   KARDS Frontend Server
 echo ========================================
 echo.
 echo   URL  : http://localhost:%PORT%/account.html
+echo   Host: 0.0.0.0:%PORT% (允许局域网/外部访问)
 echo   Admin: admin / admin123
 echo   Stop : Ctrl+C
 echo.
@@ -43,8 +44,9 @@ echo.
 start "" cmd /c "timeout /t 2 /nobreak >nul && start http://localhost:%PORT%/account.html"
 
 :: --- Start server ---
-python serve.py --port %PORT%
+python serve.py --host 0.0.0.0 --port %PORT%
 
 echo.
 echo Server stopped.
 pause
+

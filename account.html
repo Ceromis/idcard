@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -66,7 +66,18 @@
   .not-logged-view .btn-group { display: flex; gap: 12px; margin-top: 24px; }
   .not-logged-view .btn-group .btn { flex: 1; height: 46px; font-size: 16px; letter-spacing: 6px; }
 </style>
-</head>
+<script>
+  // 早期应用主题/导航, 避免页面首次渲染时的主题闪烁
+  (function() {
+    try {
+      var s = JSON.parse(localStorage.getItem("kards_settings") || "null");
+      if (s) {
+        if (s.theme && s.theme !== "default") document.documentElement.setAttribute("data-theme", s.theme);
+        if (s.navMode === "sidebar") document.body.setAttribute("data-nav", "sidebar");
+      }
+    } catch (e) {}
+  })();
+</script></head>
 <body>
 
 <div class="side-nav">
@@ -96,7 +107,7 @@
 
 <div class="page-main">
   <!-- 未登录 -->
-  <div class="not-logged-view" id="notLoggedView" style="display:none">
+  <div class="not-logged-view" id="notLoggedView">
     <div class="wrap panel" style="padding:50px 40px">
       <h2>KARDS</h2>
       <p style="color:var(--text-dim);margin-top:12px;font-size:14px;letter-spacing:2px">二战卡牌游戏配套站点</p>
@@ -139,6 +150,13 @@
       </div>
       <div class="err" id="unbindErr"></div>
       <div class="ok" id="unbindOk"></div>
+
+      <div class="section-title">组织名称</div>
+      <div class="info">当前组织: <span id="orgCur">未设置</span></div>
+      <div class="field" style="margin-top:18px"><label>组织名称 (招募确认接收时显示, 1-20 字, 用户间不重名)</label><input class="input" id="orgInput" type="text" placeholder="如 罗德岛军备处" maxlength="20" /></div>
+      <button class="btn primary" id="btnSaveOrg">保存组织名称</button>
+      <div class="err" id="orgErr"></div>
+      <div class="ok" id="orgOk"></div>
 
       <div class="section-title">邮箱 (可选)</div>
       <div class="info">当前邮箱: <span id="emailCur">未绑定</span></div>
@@ -222,6 +240,20 @@ function refreshEmailPane() {
   } else {
     el.innerHTML = '未绑定 <span class="badge warn">未验证</span>';
     $("#emailInput").value = "";
+  }
+}
+
+function refreshOrgPane() {
+  const cur = KardsAccount.getCurrentAccount();
+  if (!cur) return;
+  const org = KardsAccount.getOrganization();
+  const el = $("#orgCur");
+  if (org) {
+    el.innerHTML = org + ' <span class="badge ok">已设置</span>';
+    $("#orgInput").value = org;
+  } else {
+    el.innerHTML = '未设置 <span class="badge warn">未配置</span>';
+    $("#orgInput").value = "";
   }
 }
 
@@ -343,7 +375,7 @@ function _doGetVerify() {
 }
 
 $("#btnGetBindCode").addEventListener("click", _doGetVerify);
-["chkKards", "chkDiy"].forEach(id => { $("#" + id).addEventListener("change", () => { $("#verifyList").innerHTML = ""; $("#getCodeHint").textContent = "点击 "获取校验码" 后, 这里会出现群内要发送的指令."; }); });
+["chkKards", "chkDiy"].forEach(id => { $("#" + id).addEventListener("change", () => { $("#verifyList").innerHTML = ""; $("#getCodeHint").textContent = `点击 "获取校验码" 后, 这里会出现群内要发送的指令.`; }); });
 
 function _doUnbind(which) {
   clearMsgs();
@@ -375,9 +407,14 @@ $("#btnBindEmail").addEventListener("click", async () => {
   if (!code) { showError($("#emailErr"), "请输入验证码"); return; }
   try { KardsAccount.bindEmail(email, code); showOk($("#emailOk"), "邮箱绑定成功!"); refreshTopbar(); refreshEmailPane(); } catch (e) { showError($("#emailErr"), e.message); }
 });
-$("#btnUnbindEmail").addEventListener("click", () => {
-  clearMsgs();
-  try { KardsAccount.unbindEmail(); showOk($("#emailOk"), "邮箱已解绑"); refreshTopbar(); refreshEmailPane(); } catch (e) { showError($("#emailErr"), e.message); }
+$("#btnSaveOrg").addEventListener("click", () => {
+  $("#orgErr").textContent = ""; $("#orgOk").textContent = "";
+  const v = $("#orgInput").value;
+  try {
+    KardsAccount.setOrganization(v);
+    $("#orgOk").textContent = "组织名称已保存";
+    refreshTopbar(); refreshOrgPane();
+  } catch (e) { $("#orgErr").textContent = e.message; }
 });
 
 (async function init() {
@@ -392,3 +429,11 @@ $("#btnUnbindEmail").addEventListener("click", () => {
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
+

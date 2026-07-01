@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -197,7 +197,18 @@
   .toast.show { opacity: 1; }
   .toast.err { border-color: #e57373; color: #ffb4b4; }
 </style>
-</head>
+<script>
+  // 早期应用主题/导航, 避免页面首次渲染时的主题闪烁
+  (function() {
+    try {
+      var s = JSON.parse(localStorage.getItem("kards_settings") || "null");
+      if (s) {
+        if (s.theme && s.theme !== "default") document.documentElement.setAttribute("data-theme", s.theme);
+        if (s.navMode === "sidebar") document.body.setAttribute("data-nav", "sidebar");
+      }
+    } catch (e) {}
+  })();
+</script></head>
 <body>
 
 <div class="side-nav">
@@ -871,3 +882,4 @@ document.querySelectorAll("[data-dismiss]").forEach(el => {
 </script>
 </body>
 </html>
+
